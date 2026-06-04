@@ -8,6 +8,7 @@ const roleMiddleware = require('../middlewares/roleMiddleware');
 router.use(authMiddleware);
 
 router.get('/my', roleMiddleware(['CANDIDATE']), candidateController.getMyApplications);
+router.get('/recruiter', roleMiddleware(['RECRUITER', 'ADMIN']), applicationController.getRecruiterApplications);
 router.get('/job/:jobId', roleMiddleware(['RECRUITER', 'ADMIN']), applicationController.getApplicationsByJob);
 router.get('/:id', applicationController.getApplicationById);
 router.post('/:id/status', roleMiddleware(['RECRUITER', 'ADMIN']), applicationController.updateApplicationStatus);

@@ -1,6 +1,6 @@
 require('dotenv').config();
 
-const databaseUrl = process.env.DATABASE_URL;
+const databaseUrl = process.env.DATABASE_URL || process.env.POSTGRES_URL_NON_POOLING || process.env.POSTGRES_URL;
 
 const options = {
   dialect: 'postgres',
@@ -16,9 +16,12 @@ const options = {
 };
 
 let url = databaseUrl;
+if (url && url.startsWith('postgres')) {
+  url = url.split('?')[0];
+}
 
-// Handle production SSL for Neon/Vercel Postgres
-if (url && (process.env.NODE_ENV === 'production' || url.includes('neon.tech'))) {
+// Handle SSL for cloud database providers like Neon and Supabase
+if (url && (process.env.NODE_ENV === 'production' || url.includes('neon.tech') || url.includes('supabase.co') || url.includes('supabase.com'))) {
   options.dialectOptions = {
     ssl: {
       require: true,
@@ -33,7 +36,7 @@ if (!url) {
   options.storage = ':memory:';
   options.logging = false;
   delete options.pool;
-  console.log('⚠️ DATABASE_URL is not configured. Falling back to in-memory SQLite database.');
+  console.log('⚠️ Database connection URL is not configured. Falling back to in-memory SQLite database.');
 }
 
 module.exports = {

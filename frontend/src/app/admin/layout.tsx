@@ -1,11 +1,19 @@
+"use client";
+
 import Link from "next/link";
 import styles from "../(recruiter)/layout.module.css";
+import { tokenStorage } from "../../lib/api";
 
 export default function AdminLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const handleLogout = () => {
+    tokenStorage.logout();
+    window.location.href = "/login";
+  };
+
   return (
     <div className={styles.container}>
       <aside className={styles.sidebar}>
@@ -18,6 +26,11 @@ export default function AdminLayout({
           <Link href="#" className={styles.navItem}>Revenue & Billing</Link>
           <Link href="#" className={styles.navItem}>Settings</Link>
         </nav>
+        <div className={styles.logoutContainer}>
+          <button className={styles.logoutBtn} onClick={handleLogout} title="Logout">
+            Logout <span>🚪</span>
+          </button>
+        </div>
       </aside>
       <main className={styles.mainContent}>
         {children}

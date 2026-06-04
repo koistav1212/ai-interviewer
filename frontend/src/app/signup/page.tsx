@@ -5,16 +5,48 @@ import Link from "next/link";
 import styles from "../login/login.module.css";
 import { useRouter, useSearchParams } from "next/navigation";
 
+import { api, tokenStorage } from "../../lib/api";
+
 function SignUpForm() {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const initialRole = searchParams.get("role") || "recruiter";
   
   const [role, setRole] = useState(initialRole);
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Dummy navigation for MVP
-    window.location.href = role === 'candidate' ? '/jobs' : '/dashboard';
+    setError("");
+    setLoading(true);
+
+    try {
+      const response = await api.auth.signup({
+        name,
+        email,
+        password,
+        role: role.toUpperCase()
+      });
+
+      // Save token and user details
+      tokenStorage.setToken(response.token);
+      tokenStorage.setUser(response.user);
+
+      // Redirect based on role
+      if (response.user.role === 'CANDIDATE') {
+        window.location.href = '/jobs';
+      } else {
+        window.location.href = '/dashboard';
+      }
+    } catch (err: any) {
+      setError(err.message || "Failed to create an account. Please try again.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -24,6 +56,12 @@ function SignUpForm() {
           <h2>Create an Account</h2>
           <p>Join the future of AI-driven hiring.</p>
         </div>
+
+        {error && (
+          <div style={{ color: "#ef4444", background: "#fef2f2", padding: "0.75rem", borderRadius: "6px", marginBottom: "1rem", fontSize: "0.9rem", border: "1px solid #fee2e2" }}>
+            {error}
+          </div>
+        )}
         
         <form className={styles.form} onSubmit={handleSubmit}>
           <div className={styles.inputGroup}>
@@ -37,6 +75,7 @@ function SignUpForm() {
                   checked={role === 'recruiter'} 
                   onChange={() => setRole('recruiter')} 
                   id="role-recruiter"
+                  disabled={loading}
                 />
                 Recruiter
               </label>
@@ -48,6 +87,7 @@ function SignUpForm() {
                   checked={role === 'candidate'} 
                   onChange={() => setRole('candidate')} 
                   id="role-candidate"
+                  disabled={loading}
                 />
                 Candidate
               </label>
@@ -56,20 +96,51 @@ function SignUpForm() {
 
           <div className={styles.inputGroup}>
             <label htmlFor="name">Full Name</label>
-            <input type="text" id="name" placeholder="John Doe" required />
+            <input 
+              type="text" 
+              id="name" 
+              placeholder="John Doe" 
+              required 
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              disabled={loading}
+            />
           </div>
 
           <div className={styles.inputGroup}>
             <label htmlFor="email">Email Address</label>
-            <input type="email" id="email" placeholder="you@example.com" required />
+            <input 
+              type="email" 
+              id="email" 
+              placeholder="you@example.com" 
+              required 
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              disabled={loading}
+            />
           </div>
           
           <div className={styles.inputGroup}>
             <label htmlFor="password">Password</label>
-            <input type="password" id="password" placeholder="••••••••" required />
+            <input 
+              type="password" 
+              id="password" 
+              placeholder="••••••••" 
+              required 
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              disabled={loading}
+            />
           </div>
           
-          <button type="submit" className="btn btn-primary" id="btn-signup-submit">Sign Up</button>
+          <button 
+            type="submit" 
+            className="btn btn-primary" 
+            id="btn-signup-submit"
+            disabled={loading}
+          >
+            {loading ? "Registering..." : "Sign Up"}
+          </button>
         </form>
         
         <p className={styles.footer}>

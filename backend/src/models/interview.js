@@ -19,6 +19,10 @@ module.exports = (sequelize, DataTypes) => {
       type: DataTypes.STRING(1000),
       field: 'meeting_link',
     },
+    duration: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+    },
     status: {
       type: DataTypes.ENUM('SCHEDULED', 'COMPLETED', 'CANCELLED'),
       defaultValue: 'SCHEDULED',

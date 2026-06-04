@@ -9,6 +9,6 @@ router.use(authMiddleware);
 router.get('/candidate/:id', reportController.getCandidateReport);
 router.get('/job/:id', roleMiddleware(['RECRUITER', 'ADMIN']), reportController.getJobReport);
 router.get('/dashboard', roleMiddleware(['RECRUITER', 'ADMIN']), reportController.getReportsDashboard);
-router.post('/generate', roleMiddleware(['RECRUITER', 'ADMIN']), reportController.generateMatchReport);
+router.post('/generate', roleMiddleware(['RECRUITER', 'ADMIN', 'CANDIDATE']), reportController.generateMatchReport);
 
 module.exports = router;

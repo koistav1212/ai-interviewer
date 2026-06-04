@@ -61,3 +61,27 @@ exports.updateApplicationStatus = async (req, res, next) => {
     next(err);
   }
 };
+
+exports.getRecruiterApplications = async (req, res, next) => {
+  try {
+    const recruiterId = req.user.id;
+    const applications = await Application.findAll({
+      include: [
+        {
+          model: Job,
+          as: 'job',
+          where: { recruiterId }
+        },
+        {
+          model: User,
+          as: 'candidate',
+          attributes: ['id', 'name', 'email']
+        }
+      ],
+      order: [['createdAt', 'DESC']]
+    });
+    return res.status(200).json(applications);
+  } catch (err) {
+    next(err);
+  }
+};

@@ -28,6 +28,27 @@ module.exports = (sequelize, DataTypes) => {
       defaultValue: 'ACTIVE',
       allowNull: false,
     },
+    requirements: {
+      type: DataTypes.TEXT,
+      allowNull: true,
+    },
+    benefits: {
+      type: DataTypes.TEXT,
+      allowNull: true,
+    },
+    department: {
+      type: DataTypes.STRING,
+      allowNull: true,
+    },
+    vacancies: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      defaultValue: 1,
+    },
+    experience: {
+      type: DataTypes.STRING,
+      allowNull: true,
+    },
   }, {
     tableName: 'jobs',
     underscored: true,

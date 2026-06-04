@@ -154,3 +154,24 @@ exports.submitScores = async (req, res, next) => {
     next(err);
   }
 };
+
+exports.startInterview = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { duration } = req.body;
+
+    if (!duration) {
+      return res.status(400).json({ message: 'Duration is required' });
+    }
+
+    const interview = await Interview.findByPk(id);
+    if (!interview) return res.status(404).json({ message: 'Interview not found' });
+
+    interview.duration = parseInt(duration, 10);
+    await interview.save();
+
+    return res.status(200).json(interview);
+  } catch (err) {
+    next(err);
+  }
+};
