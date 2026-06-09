@@ -37,6 +37,8 @@ if (!url) {
   options.logging = false;
   delete options.pool;
   console.log('⚠️ Database connection URL is not configured. Falling back to in-memory SQLite database.');
+} else {
+  options.dialectModule = require('pg');
 }
 
 module.exports = {
