@@ -1,40 +1,29 @@
-module.exports = (sequelize, DataTypes) => {
-  const Report = sequelize.define('Report', {
-    id: {
-      type: DataTypes.UUID,
-      defaultValue: DataTypes.UUIDV4,
-      primaryKey: true,
-    },
-    applicationId: {
-      type: DataTypes.UUID,
-      allowNull: false,
-      unique: true,
-      field: 'application_id',
-    },
-    matchScore: {
-      type: DataTypes.DECIMAL(5, 2),
-      allowNull: false,
-      field: 'match_score',
-    },
-    summary: DataTypes.TEXT,
-    strengthPoints: {
-      type: DataTypes.JSON,
-      defaultValue: [],
-      field: 'strength_points',
-    },
-    gapPoints: {
-      type: DataTypes.JSON,
-      defaultValue: [],
-      field: 'gap_points',
-    },
-  }, {
-    tableName: 'reports',
-    underscored: true,
-  });
+const mongoose = require('mongoose');
 
-  Report.associate = (models) => {
-    Report.belongsTo(models.Application, { foreignKey: 'applicationId', as: 'application' });
-  };
+const ReportSchema = new mongoose.Schema({
+  applicationId: { type: mongoose.Schema.Types.ObjectId, ref: 'Application', required: true, unique: true },
+  matchScore: { type: Number, required: true },
+  summary: { type: String, default: '' },
+  strengthPoints: { type: [String], default: [] },
+  gapPoints: { type: [String], default: [] }
+}, {
+  timestamps: true,
+  toJSON: {
+    virtuals: true,
+    transform: (doc, ret) => {
+      ret.id = ret._id ? ret._id.toString() : '';
+      delete ret._id;
+      delete ret.__v;
+    }
+  },
+  toObject: { virtuals: true }
+});
 
-  return Report;
-};
+ReportSchema.virtual('application', {
+  ref: 'Application',
+  localField: 'applicationId',
+  foreignField: '_id',
+  justOne: true
+});
+
+module.exports = mongoose.model('Report', ReportSchema);

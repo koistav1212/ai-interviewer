@@ -1,6 +1,6 @@
 const express = require('express');
 const cors = require('cors');
-const { sequelize } = require('./models');
+const { mongoose } = require('./models');
 const masterRouter = require('./routes');
 const errorMiddleware = require('./middlewares/errorMiddleware');
 const loggerMiddleware = require('./middlewares/loggerMiddleware');
@@ -18,17 +18,11 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(loggerMiddleware);
 
-// Boot DB connection and sync
-if (process.env.NODE_ENV !== 'test') {
-  sequelize.sync({ alter: true })
-    .then(() => console.log('✅ Database schema synced successfully.'))
-    .catch((err) => console.error('❌ Failed to sync database schema:', err));
-}
-
 // Health check endpoint
 app.get('/health', async (req, res) => {
   try {
-    await sequelize.authenticate();
+    const isConnected = mongoose.connection.readyState >= 1;
+    if (!isConnected) throw new Error('MongoDB connection is not ready');
     res.status(200).json({ status: 'OK', database: 'CONNECTED', env: process.env.NODE_ENV });
   } catch (error) {
     res.status(500).json({ status: 'ERROR', database: 'DISCONNECTED', message: error.message });

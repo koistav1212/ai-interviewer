@@ -1,48 +1,23 @@
 require('dotenv').config();
-const pg = require('pg');
+const mongoose = require('mongoose');
 
-const databaseUrl = process.env.DATABASE_URL || process.env.POSTGRES_URL_NON_POOLING || process.env.POSTGRES_URL;
+const mongoUrl = process.env.MONGO_URL || 'mongodb+srv://koustavkanakapd_db_user:abcd1234@cluster0.bw8wig2.mongodb.net/';
 
-const options = {
-  dialect: 'postgres',
-  dialectModule: pg,
-  protocol: 'postgres',
-  dialectOptions: {},
-  logging: process.env.NODE_ENV === 'development' ? console.log : false,
-  pool: {
-    max: 5,
-    min: 0,
-    acquire: 30000,
-    idle: 10000,
-  },
+const connectDB = async () => {
+  try {
+    if (mongoose.connection.readyState >= 1) return;
+    
+    await mongoose.connect(mongoUrl, {
+      serverSelectionTimeoutMS: 5000,
+    });
+    console.log('✅ Connected to MongoDB successfully.');
+  } catch (err) {
+    console.error('❌ MongoDB connection error:', err.message);
+    process.exit(1);
+  }
 };
 
-let url = databaseUrl;
-if (url && url.startsWith('postgres')) {
-  url = url.split('?')[0];
-}
-
-// Handle SSL for cloud database providers like Neon and Supabase
-if (url && (process.env.NODE_ENV === 'production' || url.includes('neon.tech') || url.includes('supabase.co') || url.includes('supabase.com'))) {
-  options.dialectOptions = {
-    ssl: {
-      require: true,
-      rejectUnauthorized: false,
-    },
-  };
-}
-
-// Fallback to SQLite in development if no PostgreSQL URL is configured
-if (!url) {
-  options.dialect = 'sqlite';
-  options.storage = ':memory:';
-  options.logging = false;
-  delete options.pool;
-  delete options.dialectModule;
-  console.log('⚠️ Database connection URL is not configured. Falling back to in-memory SQLite database.');
-}
-
 module.exports = {
-  url,
-  options,
+  mongoUrl,
+  connectDB,
 };

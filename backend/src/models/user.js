@@ -1,39 +1,29 @@
-module.exports = (sequelize, DataTypes) => {
-  const User = sequelize.define('User', {
-    id: {
-      type: DataTypes.UUID,
-      defaultValue: DataTypes.UUIDV4,
-      primaryKey: true,
-    },
-    name: {
-      type: DataTypes.STRING,
-      allowNull: false,
-    },
-    email: {
-      type: DataTypes.STRING,
-      allowNull: false,
-      unique: true,
-      validate: { isEmail: true },
-    },
-    passwordHash: {
-      type: DataTypes.STRING,
-      allowNull: false,
-      field: 'password_hash',
-    },
-    role: {
-      type: DataTypes.ENUM('ADMIN', 'RECRUITER', 'CANDIDATE'),
-      allowNull: false,
-    },
-  }, {
-    tableName: 'users',
-    underscored: true,
-  });
+const mongoose = require('mongoose');
 
-  User.associate = (models) => {
-    User.hasOne(models.CandidateProfile, { foreignKey: 'userId', as: 'profile' });
-    User.hasMany(models.Job, { foreignKey: 'recruiterId', as: 'postedJobs' });
-    User.hasMany(models.Application, { foreignKey: 'candidateId', as: 'applications' });
-  };
+const UserSchema = new mongoose.Schema({
+  name: { type: String, required: true },
+  email: { type: String, required: true, unique: true, lowercase: true, trim: true },
+  passwordHash: { type: String, required: true },
+  role: { type: String, enum: ['ADMIN', 'RECRUITER', 'CANDIDATE'], required: true },
+}, {
+  timestamps: true,
+  toJSON: {
+    virtuals: true,
+    transform: (doc, ret) => {
+      ret.id = ret._id ? ret._id.toString() : '';
+      delete ret._id;
+      delete ret.__v;
+    }
+  },
+  toObject: { virtuals: true }
+});
 
-  return User;
-};
+// Virtual populate for CandidateProfile
+UserSchema.virtual('profile', {
+  ref: 'CandidateProfile',
+  localField: '_id',
+  foreignField: 'userId',
+  justOne: true
+});
+
+module.exports = mongoose.model('User', UserSchema);

@@ -15,7 +15,7 @@ exports.signup = async (req, res, next) => {
       return res.status(400).json({ message: 'Invalid role. Must be one of ADMIN, RECRUITER, CANDIDATE' });
     }
 
-    const existing = await User.findOne({ where: { email } });
+    const existing = await User.findOne({ email });
     if (existing) {
       return res.status(400).json({ message: 'Email address already in use' });
     }
@@ -53,7 +53,7 @@ exports.login = async (req, res, next) => {
       return res.status(400).json({ message: 'Email and password are required' });
     }
 
-    const user = await User.findOne({ where: { email } });
+    const user = await User.findOne({ email });
     if (!user) {
       return res.status(401).json({ message: 'Invalid email or password' });
     }
@@ -80,9 +80,7 @@ exports.login = async (req, res, next) => {
 
 exports.getProfile = async (req, res, next) => {
   try {
-    const user = await User.findByPk(req.user.id, {
-      attributes: ['id', 'name', 'email', 'role', 'createdAt'],
-    });
+    const user = await User.findById(req.user.id).select('id name email role createdAt');
     return res.status(200).json(user);
   } catch (err) {
     next(err);

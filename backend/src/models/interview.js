@@ -1,42 +1,37 @@
-module.exports = (sequelize, DataTypes) => {
-  const Interview = sequelize.define('Interview', {
-    id: {
-      type: DataTypes.UUID,
-      defaultValue: DataTypes.UUIDV4,
-      primaryKey: true,
-    },
-    applicationId: {
-      type: DataTypes.UUID,
-      allowNull: false,
-      field: 'application_id',
-    },
-    scheduledTime: {
-      type: DataTypes.DATE,
-      allowNull: false,
-      field: 'scheduled_time',
-    },
-    meetingLink: {
-      type: DataTypes.STRING(1000),
-      field: 'meeting_link',
-    },
-    duration: {
-      type: DataTypes.INTEGER,
-      allowNull: true,
-    },
-    status: {
-      type: DataTypes.ENUM('SCHEDULED', 'COMPLETED', 'CANCELLED'),
-      defaultValue: 'SCHEDULED',
-      allowNull: false,
-    },
-  }, {
-    tableName: 'interviews',
-    underscored: true,
-  });
+const mongoose = require('mongoose');
 
-  Interview.associate = (models) => {
-    Interview.belongsTo(models.Application, { foreignKey: 'applicationId', as: 'application' });
-    Interview.hasOne(models.InterviewScore, { foreignKey: 'interviewId', as: 'score' });
-  };
+const InterviewSchema = new mongoose.Schema({
+  applicationId: { type: mongoose.Schema.Types.ObjectId, ref: 'Application', required: true },
+  scheduledTime: { type: Date, required: true },
+  meetingLink: { type: String, default: null },
+  duration: { type: Number, default: null },
+  status: { type: String, enum: ['SCHEDULED', 'COMPLETED', 'CANCELLED'], default: 'SCHEDULED' }
+}, {
+  timestamps: true,
+  toJSON: {
+    virtuals: true,
+    transform: (doc, ret) => {
+      ret.id = ret._id ? ret._id.toString() : '';
+      delete ret._id;
+      delete ret.__v;
+    }
+  },
+  toObject: { virtuals: true }
+});
 
-  return Interview;
-};
+// Virtual populates
+InterviewSchema.virtual('application', {
+  ref: 'Application',
+  localField: 'applicationId',
+  foreignField: '_id',
+  justOne: true
+});
+
+InterviewSchema.virtual('score', {
+  ref: 'InterviewScore',
+  localField: '_id',
+  foreignField: 'interviewId',
+  justOne: true
+});
+
+module.exports = mongoose.model('Interview', InterviewSchema);

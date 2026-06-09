@@ -1,36 +1,52 @@
-module.exports = (sequelize, DataTypes) => {
-  const Application = sequelize.define('Application', {
-    id: {
-      type: DataTypes.UUID,
-      defaultValue: DataTypes.UUIDV4,
-      primaryKey: true,
-    },
-    jobId: {
-      type: DataTypes.UUID,
-      allowNull: false,
-      field: 'job_id',
-    },
-    candidateId: {
-      type: DataTypes.UUID,
-      allowNull: false,
-      field: 'candidate_id',
-    },
-    status: {
-      type: DataTypes.ENUM('APPLIED', 'SHORTLISTED', 'REJECTED', 'INTERVIEW_SCHEDULED', 'INTERVIEW_COMPLETED', 'SELECTED'),
-      defaultValue: 'APPLIED',
-      allowNull: false,
-    },
-  }, {
-    tableName: 'applications',
-    underscored: true,
-  });
+const mongoose = require('mongoose');
 
-  Application.associate = (models) => {
-    Application.belongsTo(models.Job, { foreignKey: 'jobId', as: 'job' });
-    Application.belongsTo(models.User, { foreignKey: 'candidateId', as: 'candidate' });
-    Application.hasMany(models.Interview, { foreignKey: 'applicationId', as: 'interviews' });
-    Application.hasOne(models.Report, { foreignKey: 'applicationId', as: 'report' });
-  };
+const ApplicationSchema = new mongoose.Schema({
+  jobId: { type: mongoose.Schema.Types.ObjectId, ref: 'Job', required: true },
+  candidateId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  status: {
+    type: String,
+    enum: ['APPLIED', 'SHORTLISTED', 'REJECTED', 'INTERVIEW_SCHEDULED', 'INTERVIEW_COMPLETED', 'SELECTED'],
+    default: 'APPLIED'
+  }
+}, {
+  timestamps: true,
+  toJSON: {
+    virtuals: true,
+    transform: (doc, ret) => {
+      ret.id = ret._id ? ret._id.toString() : '';
+      delete ret._id;
+      delete ret.__v;
+    }
+  },
+  toObject: { virtuals: true }
+});
 
-  return Application;
-};
+// Virtual populates
+ApplicationSchema.virtual('job', {
+  ref: 'Job',
+  localField: 'jobId',
+  foreignField: '_id',
+  justOne: true
+});
+
+ApplicationSchema.virtual('candidate', {
+  ref: 'User',
+  localField: 'candidateId',
+  foreignField: '_id',
+  justOne: true
+});
+
+ApplicationSchema.virtual('interviews', {
+  ref: 'Interview',
+  localField: '_id',
+  foreignField: 'applicationId'
+});
+
+ApplicationSchema.virtual('report', {
+  ref: 'Report',
+  localField: '_id',
+  foreignField: 'applicationId',
+  justOne: true
+});
+
+module.exports = mongoose.model('Application', ApplicationSchema);

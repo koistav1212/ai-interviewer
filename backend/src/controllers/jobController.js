@@ -1,5 +1,4 @@
-const { QueryTypes } = require('sequelize');
-const { Job, JobSkill, Application, Interview, sequelize } = require('../models');
+const { Job, Application, Interview } = require('../models');
 const pdfParse = require('pdf-parse');
 const { OpenAI } = require('openai');
 
@@ -12,6 +11,11 @@ exports.createJob = async (req, res, next) => {
       return res.status(400).json({ message: 'Title and description are required' });
     }
 
+    const skillsData = (skills && Array.isArray(skills)) ? skills.map(skill => ({
+      skillName: typeof skill === 'string' ? skill : skill.name,
+      importance: skill.importance || 'REQUIRED',
+    })) : [];
+
     const job = await Job.create({
       recruiterId,
       title,
@@ -23,19 +27,10 @@ exports.createJob = async (req, res, next) => {
       experience,
       requirements,
       benefits,
+      skills: skillsData
     });
 
-    if (skills && Array.isArray(skills)) {
-      const skillsData = skills.map(skill => ({
-        jobId: job.id,
-        skillName: typeof skill === 'string' ? skill : skill.name,
-        importance: skill.importance || 'REQUIRED',
-      }));
-      await JobSkill.bulkCreate(skillsData);
-    }
-
-    const fullJob = await Job.findByPk(job.id, { include: ['skills'] });
-    return res.status(201).json(fullJob);
+    return res.status(201).json(job);
   } catch (err) {
     next(err);
   }
@@ -43,11 +38,8 @@ exports.createJob = async (req, res, next) => {
 
 exports.getMyJobs = async (req, res, next) => {
   try {
-    const jobs = await Job.findAll({
-      where: { recruiterId: req.user.id },
-      include: ['skills'],
-      order: [['createdAt', 'DESC']],
-    });
+    const jobs = await Job.find({ recruiterId: req.user.id })
+      .sort({ createdAt: -1 });
     return res.status(200).json(jobs);
   } catch (err) {
     next(err);
@@ -56,7 +48,7 @@ exports.getMyJobs = async (req, res, next) => {
 
 exports.getJobDetails = async (req, res, next) => {
   try {
-    const job = await Job.findByPk(req.params.id, { include: ['skills'] });
+    const job = await Job.findById(req.params.id);
     if (!job) {
       return res.status(404).json({ message: 'Job not found' });
     }
@@ -69,7 +61,7 @@ exports.getJobDetails = async (req, res, next) => {
 exports.shortlistApplication = async (req, res, next) => {
   try {
     const { id } = req.params; // Application ID
-    const application = await Application.findByPk(id);
+    const application = await Application.findById(id);
     if (!application) {
       return res.status(404).json({ message: 'Application not found' });
     }
@@ -92,7 +84,7 @@ exports.scheduleInterview = async (req, res, next) => {
       return res.status(400).json({ message: 'Scheduled time is required' });
     }
 
-    const application = await Application.findByPk(id);
+    const application = await Application.findById(id);
     if (!application) {
       return res.status(404).json({ message: 'Application not found' });
     }
@@ -116,34 +108,25 @@ exports.scheduleInterview = async (req, res, next) => {
 exports.getRecruiterDashboard = async (req, res, next) => {
   try {
     const recruiterId = req.user.id;
-    const isSqlite = sequelize.options.dialect === 'sqlite';
 
-    const query = isSqlite 
-      ? `SELECT 
-          (SELECT COUNT(*) FROM jobs WHERE recruiter_id = :recruiterId) AS totalJobs,
-          (SELECT COUNT(*) FROM applications a JOIN jobs j ON a.job_id = j.id WHERE j.recruiter_id = :recruiterId) AS totalApplications,
-          (SELECT COUNT(*) FROM applications a JOIN jobs j ON a.job_id = j.id WHERE j.recruiter_id = :recruiterId AND a.status = 'SHORTLISTED') AS totalShortlisted,
-          (SELECT COUNT(*) FROM interviews i JOIN applications a ON i.application_id = a.id JOIN jobs j ON a.job_id = j.id WHERE j.recruiter_id = :recruiterId) AS totalInterviews,
-          (SELECT COUNT(*) FROM applications a JOIN jobs j ON a.job_id = j.id WHERE j.recruiter_id = :recruiterId AND a.status = 'SELECTED') AS totalSelected`
-      : `SELECT 
-          (SELECT COUNT(*) FROM jobs WHERE recruiter_id = :recruiterId) AS "totalJobs",
-          (SELECT COUNT(*) FROM applications a JOIN jobs j ON a.job_id = j.id WHERE j.recruiter_id = :recruiterId) AS "totalApplications",
-          (SELECT COUNT(*) FROM applications a JOIN jobs j ON a.job_id = j.id WHERE j.recruiter_id = :recruiterId AND a.status = 'SHORTLISTED') AS "totalShortlisted",
-          (SELECT COUNT(*) FROM interviews i JOIN applications a ON i.application_id = a.id JOIN jobs j ON a.job_id = j.id WHERE j.recruiter_id = :recruiterId) AS "totalInterviews",
-          (SELECT COUNT(*) FROM applications a JOIN jobs j ON a.job_id = j.id WHERE j.recruiter_id = :recruiterId AND a.status = 'SELECTED') AS "totalSelected"`;
+    const totalJobs = await Job.countDocuments({ recruiterId });
+    const recruiterJobs = await Job.find({ recruiterId }).select('_id');
+    const jobIds = recruiterJobs.map(job => job._id);
 
-    const stats = await sequelize.query(query, {
-      replacements: { recruiterId },
-      type: QueryTypes.SELECT,
-      plain: true
-    });
+    const totalApplications = await Application.countDocuments({ jobId: { $in: jobIds } });
+    const totalShortlisted = await Application.countDocuments({ jobId: { $in: jobIds }, status: 'SHORTLISTED' });
+    const totalSelected = await Application.countDocuments({ jobId: { $in: jobIds }, status: 'SELECTED' });
+
+    const applications = await Application.find({ jobId: { $in: jobIds } }).select('_id');
+    const appIds = applications.map(app => app._id);
+    const totalInterviews = await Interview.countDocuments({ applicationId: { $in: appIds } });
 
     const responseData = {
-      totalJobs: Number(stats?.totalJobs || stats?.totalJobs || 0),
-      totalApplications: Number(stats?.totalApplications || stats?.totalApplications || 0),
-      totalShortlisted: Number(stats?.totalShortlisted || stats?.totalShortlisted || 0),
-      totalInterviews: Number(stats?.totalInterviews || stats?.totalInterviews || 0),
-      totalSelected: Number(stats?.totalSelected || stats?.totalSelected || 0),
+      totalJobs,
+      totalApplications,
+      totalShortlisted,
+      totalInterviews,
+      totalSelected,
     };
 
     return res.status(200).json(responseData);

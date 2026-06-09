@@ -1,20 +1,15 @@
-const { Application, Job, User, CandidateProfile } = require('../models');
+const { Application, Job } = require('../models');
 
 exports.getApplicationsByJob = async (req, res, next) => {
   try {
     const { jobId } = req.params;
-    const applications = await Application.findAll({
-      where: { jobId },
-      include: [
-        {
-          model: User,
-          as: 'candidate',
-          attributes: ['id', 'name', 'email'],
-          include: [{ model: CandidateProfile, as: 'profile' }]
-        }
-      ],
-      order: [['createdAt', 'DESC']],
-    });
+    const applications = await Application.find({ jobId })
+      .populate({
+        path: 'candidate',
+        select: 'id name email',
+        populate: { path: 'profile' }
+      })
+      .sort({ createdAt: -1 });
     return res.status(200).json(applications);
   } catch (err) {
     next(err);
@@ -23,12 +18,12 @@ exports.getApplicationsByJob = async (req, res, next) => {
 
 exports.getApplicationById = async (req, res, next) => {
   try {
-    const application = await Application.findByPk(req.params.id, {
-      include: [
-        { model: Job, as: 'job' },
-        { model: User, as: 'candidate', attributes: ['id', 'name', 'email'] }
-      ],
-    });
+    const application = await Application.findById(req.params.id)
+      .populate('job')
+      .populate({
+        path: 'candidate',
+        select: 'id name email'
+      });
     if (!application) {
       return res.status(404).json({ message: 'Application not found' });
     }
@@ -48,7 +43,7 @@ exports.updateApplicationStatus = async (req, res, next) => {
       return res.status(400).json({ message: 'Invalid or missing application status' });
     }
 
-    const application = await Application.findByPk(id);
+    const application = await Application.findById(id);
     if (!application) {
       return res.status(404).json({ message: 'Application not found' });
     }
@@ -65,21 +60,20 @@ exports.updateApplicationStatus = async (req, res, next) => {
 exports.getRecruiterApplications = async (req, res, next) => {
   try {
     const recruiterId = req.user.id;
-    const applications = await Application.findAll({
-      include: [
-        {
-          model: Job,
-          as: 'job',
-          where: { recruiterId }
-        },
-        {
-          model: User,
-          as: 'candidate',
-          attributes: ['id', 'name', 'email']
-        }
-      ],
-      order: [['createdAt', 'DESC']]
-    });
+    
+    // Find all jobs posted by the recruiter
+    const recruiterJobs = await Job.find({ recruiterId }).select('_id');
+    const jobIds = recruiterJobs.map(job => job._id);
+
+    // Find all applications for those jobs
+    const applications = await Application.find({ jobId: { $in: jobIds } })
+      .populate('job')
+      .populate({
+        path: 'candidate',
+        select: 'id name email'
+      })
+      .sort({ createdAt: -1 });
+
     return res.status(200).json(applications);
   } catch (err) {
     next(err);

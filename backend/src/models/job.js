@@ -1,64 +1,34 @@
-module.exports = (sequelize, DataTypes) => {
-  const Job = sequelize.define('Job', {
-    id: {
-      type: DataTypes.UUID,
-      defaultValue: DataTypes.UUIDV4,
-      primaryKey: true,
-    },
-    recruiterId: {
-      type: DataTypes.UUID,
-      allowNull: false,
-      field: 'recruiter_id',
-    },
-    title: {
-      type: DataTypes.STRING,
-      allowNull: false,
-    },
-    description: {
-      type: DataTypes.TEXT,
-      allowNull: false,
-    },
-    location: DataTypes.STRING,
-    salaryRange: {
-      type: DataTypes.STRING,
-      field: 'salary_range',
-    },
-    status: {
-      type: DataTypes.ENUM('ACTIVE', 'CLOSED'),
-      defaultValue: 'ACTIVE',
-      allowNull: false,
-    },
-    requirements: {
-      type: DataTypes.TEXT,
-      allowNull: true,
-    },
-    benefits: {
-      type: DataTypes.TEXT,
-      allowNull: true,
-    },
-    department: {
-      type: DataTypes.STRING,
-      allowNull: true,
-    },
-    vacancies: {
-      type: DataTypes.INTEGER,
-      allowNull: true,
-      defaultValue: 1,
-    },
-    experience: {
-      type: DataTypes.STRING,
-      allowNull: true,
-    },
-  }, {
-    tableName: 'jobs',
-    underscored: true,
-  });
+const mongoose = require('mongoose');
 
-  Job.associate = (models) => {
-    Job.belongsTo(models.User, { foreignKey: 'recruiterId', as: 'recruiter' });
-    Job.hasMany(models.JobSkill, { foreignKey: 'jobId', as: 'skills' });
-    Job.hasMany(models.Application, { foreignKey: 'jobId', as: 'applications' });
-  };
+const JobSkillSchema = new mongoose.Schema({
+  skillName: { type: String, required: true },
+  importance: { type: String, enum: ['REQUIRED', 'PREFERRED'], default: 'REQUIRED' }
+}, { _id: false });
 
-  return Job;
-};
+const JobSchema = new mongoose.Schema({
+  recruiterId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  title: { type: String, required: true },
+  description: { type: String, required: true },
+  location: { type: String, default: '' },
+  salaryRange: { type: String, default: '' },
+  status: { type: String, enum: ['ACTIVE', 'CLOSED'], default: 'ACTIVE' },
+  requirements: { type: String, default: '' },
+  benefits: { type: String, default: '' },
+  department: { type: String, default: '' },
+  vacancies: { type: Number, default: 1 },
+  experience: { type: String, default: '' },
+  skills: [JobSkillSchema]
+}, {
+  timestamps: true,
+  toJSON: {
+    virtuals: true,
+    transform: (doc, ret) => {
+      ret.id = ret._id ? ret._id.toString() : '';
+      delete ret._id;
+      delete ret.__v;
+    }
+  },
+  toObject: { virtuals: true }
+});
+
+module.exports = mongoose.model('Job', JobSchema);

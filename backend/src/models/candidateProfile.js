@@ -1,41 +1,22 @@
-module.exports = (sequelize, DataTypes) => {
-  const CandidateProfile = sequelize.define('CandidateProfile', {
-    id: {
-      type: DataTypes.UUID,
-      defaultValue: DataTypes.UUIDV4,
-      primaryKey: true,
-    },
-    userId: {
-      type: DataTypes.UUID,
-      allowNull: false,
-      unique: true,
-      field: 'user_id',
-    },
-    resumeUrl: {
-      type: DataTypes.STRING(1000),
-      field: 'resume_url',
-    },
-    resumeText: {
-      type: DataTypes.TEXT,
-      field: 'resume_text',
-    },
-    skills: {
-      type: DataTypes.JSON,
-      defaultValue: [],
-    },
-    experienceYears: {
-      type: DataTypes.DECIMAL(4, 2),
-      defaultValue: 0.0,
-      field: 'experience_years',
-    },
-  }, {
-    tableName: 'candidate_profiles',
-    underscored: true,
-  });
+const mongoose = require('mongoose');
 
-  CandidateProfile.associate = (models) => {
-    CandidateProfile.belongsTo(models.User, { foreignKey: 'userId', as: 'user' });
-  };
+const CandidateProfileSchema = new mongoose.Schema({
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, unique: true },
+  resumeUrl: { type: String, default: null },
+  resumeText: { type: String, default: '' },
+  skills: { type: mongoose.Schema.Types.Mixed, default: [] },
+  experienceYears: { type: Number, default: 0.0 }
+}, {
+  timestamps: true,
+  toJSON: {
+    virtuals: true,
+    transform: (doc, ret) => {
+      ret.id = ret._id ? ret._id.toString() : '';
+      delete ret._id;
+      delete ret.__v;
+    }
+  },
+  toObject: { virtuals: true }
+});
 
-  return CandidateProfile;
-};
+module.exports = mongoose.model('CandidateProfile', CandidateProfileSchema);

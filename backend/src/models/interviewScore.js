@@ -1,50 +1,31 @@
-module.exports = (sequelize, DataTypes) => {
-  const InterviewScore = sequelize.define('InterviewScore', {
-    id: {
-      type: DataTypes.UUID,
-      defaultValue: DataTypes.UUIDV4,
-      primaryKey: true,
-    },
-    interviewId: {
-      type: DataTypes.UUID,
-      allowNull: false,
-      unique: true,
-      field: 'interview_id',
-    },
-    technicalScore: {
-      type: DataTypes.DECIMAL(4, 2),
-      allowNull: false,
-      field: 'technical_score',
-    },
-    communicationScore: {
-      type: DataTypes.DECIMAL(4, 2),
-      allowNull: false,
-      field: 'communication_score',
-    },
-    leadershipScore: {
-      type: DataTypes.DECIMAL(4, 2),
-      allowNull: false,
-      field: 'leadership_score',
-    },
-    businessAcumenScore: {
-      type: DataTypes.DECIMAL(4, 2),
-      allowNull: false,
-      field: 'business_acumen_score',
-    },
-    overallScore: {
-      type: DataTypes.DECIMAL(4, 2),
-      allowNull: false,
-      field: 'overall_score',
-    },
-    feedback: DataTypes.TEXT,
-  }, {
-    tableName: 'interview_scores',
-    underscored: true,
-  });
+const mongoose = require('mongoose');
 
-  InterviewScore.associate = (models) => {
-    InterviewScore.belongsTo(models.Interview, { foreignKey: 'interviewId', as: 'interview' });
-  };
+const InterviewScoreSchema = new mongoose.Schema({
+  interviewId: { type: mongoose.Schema.Types.ObjectId, ref: 'Interview', required: true, unique: true },
+  technicalScore: { type: Number, required: true },
+  communicationScore: { type: Number, required: true },
+  leadershipScore: { type: Number, required: true },
+  businessAcumenScore: { type: Number, required: true },
+  overallScore: { type: Number, required: true },
+  feedback: { type: String, default: '' }
+}, {
+  timestamps: true,
+  toJSON: {
+    virtuals: true,
+    transform: (doc, ret) => {
+      ret.id = ret._id ? ret._id.toString() : '';
+      delete ret._id;
+      delete ret.__v;
+    }
+  },
+  toObject: { virtuals: true }
+});
 
-  return InterviewScore;
-};
+InterviewScoreSchema.virtual('interview', {
+  ref: 'Interview',
+  localField: 'interviewId',
+  foreignField: '_id',
+  justOne: true
+});
+
+module.exports = mongoose.model('InterviewScore', InterviewScoreSchema);

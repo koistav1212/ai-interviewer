@@ -1,5 +1,4 @@
-const { QueryTypes } = require('sequelize');
-const { CandidateProfile, Job, Application, sequelize } = require('../models');
+const { CandidateProfile, Job, Application } = require('../models');
 const pdfParse = require('pdf-parse');
 const { OpenAI } = require('openai');
 
@@ -9,7 +8,7 @@ exports.updateProfile = async (req, res, next) => {
     const { resumeUrl, resumeText, skills, experienceYears } = req.body;
     const userId = req.user.id;
 
-    let profile = await CandidateProfile.findOne({ where: { userId } });
+    let profile = await CandidateProfile.findOne({ userId });
     if (profile) {
       profile.resumeUrl = resumeUrl || profile.resumeUrl;
       profile.resumeText = resumeText || profile.resumeText;
@@ -34,11 +33,8 @@ exports.updateProfile = async (req, res, next) => {
 
 exports.getAllActiveJobs = async (req, res, next) => {
   try {
-    const jobs = await Job.findAll({
-      where: { status: 'ACTIVE' },
-      include: ['skills'],
-      order: [['createdAt', 'DESC']],
-    });
+    const jobs = await Job.find({ status: 'ACTIVE' })
+      .sort({ createdAt: -1 });
     return res.status(200).json(jobs);
   } catch (err) {
     next(err);
@@ -50,12 +46,12 @@ exports.applyForJob = async (req, res, next) => {
     const { jobId } = req.params;
     const candidateId = req.user.id;
 
-    const job = await Job.findByPk(jobId);
+    const job = await Job.findById(jobId);
     if (!job) {
       return res.status(404).json({ message: 'Job not found' });
     }
 
-    const existing = await Application.findOne({ where: { jobId, candidateId } });
+    const existing = await Application.findOne({ jobId, candidateId });
     if (existing) {
       return res.status(400).json({ message: 'You have already applied for this job' });
     }
@@ -74,13 +70,9 @@ exports.applyForJob = async (req, res, next) => {
 
 exports.getMyApplications = async (req, res, next) => {
   try {
-    const applications = await Application.findAll({
-      where: { candidateId: req.user.id },
-      include: [
-        { model: Job, as: 'job', include: ['skills'] }
-      ],
-      order: [['createdAt', 'DESC']],
-    });
+    const applications = await Application.find({ candidateId: req.user.id })
+      .populate('job')
+      .sort({ createdAt: -1 });
     return res.status(200).json(applications);
   } catch (err) {
     next(err);
@@ -90,35 +82,17 @@ exports.getMyApplications = async (req, res, next) => {
 exports.getCandidateDashboard = async (req, res, next) => {
   try {
     const candidateId = req.user.id;
-    const isSqlite = sequelize.options.dialect === 'sqlite';
 
-    const query = isSqlite 
-      ? `SELECT 
-          COUNT(*) AS totalApplications,
-          COUNT(CASE WHEN status = 'INTERVIEW_SCHEDULED' THEN 1 END) AS interviewsScheduled,
-          COUNT(CASE WHEN status = 'INTERVIEW_COMPLETED' THEN 1 END) AS interviewsCompleted,
-          COUNT(CASE WHEN status = 'SELECTED' THEN 1 END) AS selectedJobs
-        FROM applications
-        WHERE candidate_id = :candidateId`
-      : `SELECT 
-          COUNT(*) AS "totalApplications",
-          COUNT(CASE WHEN status = 'INTERVIEW_SCHEDULED' THEN 1 END) AS "interviewsScheduled",
-          COUNT(CASE WHEN status = 'INTERVIEW_COMPLETED' THEN 1 END) AS "interviewsCompleted",
-          COUNT(CASE WHEN status = 'SELECTED' THEN 1 END) AS "selectedJobs"
-        FROM applications
-        WHERE candidate_id = :candidateId`;
-
-    const stats = await sequelize.query(query, {
-      replacements: { candidateId },
-      type: QueryTypes.SELECT,
-      plain: true
-    });
+    const totalApplications = await Application.countDocuments({ candidateId });
+    const interviewsScheduled = await Application.countDocuments({ candidateId, status: 'INTERVIEW_SCHEDULED' });
+    const interviewsCompleted = await Application.countDocuments({ candidateId, status: 'INTERVIEW_COMPLETED' });
+    const selectedJobs = await Application.countDocuments({ candidateId, status: 'SELECTED' });
 
     const responseData = {
-      totalApplications: Number(stats?.totalApplications || 0),
-      interviewsScheduled: Number(stats?.interviewsScheduled || 0),
-      interviewsCompleted: Number(stats?.interviewsCompleted || 0),
-      selectedJobs: Number(stats?.selectedJobs || 0),
+      totalApplications,
+      interviewsScheduled,
+      interviewsCompleted,
+      selectedJobs,
     };
 
     return res.status(200).json(responseData);
@@ -239,7 +213,7 @@ ${rawText}
     expYears = parseFloat(expYears.toFixed(1));
 
     // 5. Update or Create CandidateProfile
-    let profile = await CandidateProfile.findOne({ where: { userId } });
+    let profile = await CandidateProfile.findOne({ userId });
     if (profile) {
       profile.resumeText = rawText;
       profile.skills = structuredJson;
