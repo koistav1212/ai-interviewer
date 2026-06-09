@@ -1,9 +1,11 @@
 require('dotenv').config();
+const pg = require('pg');
 
 const databaseUrl = process.env.DATABASE_URL || process.env.POSTGRES_URL_NON_POOLING || process.env.POSTGRES_URL;
 
 const options = {
   dialect: 'postgres',
+  dialectModule: pg,
   protocol: 'postgres',
   dialectOptions: {},
   logging: process.env.NODE_ENV === 'development' ? console.log : false,
@@ -36,9 +38,8 @@ if (!url) {
   options.storage = ':memory:';
   options.logging = false;
   delete options.pool;
+  delete options.dialectModule;
   console.log('⚠️ Database connection URL is not configured. Falling back to in-memory SQLite database.');
-} else {
-  options.dialectModule = require('pg');
 }
 
 module.exports = {
