@@ -7,6 +7,7 @@ const JobSkillSchema = new mongoose.Schema({
 
 const JobSchema = new mongoose.Schema({
   recruiterId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  company: { type: String, default: 'Google' },
   title: { type: String, required: true },
   description: { type: String, required: true },
   location: { type: String, default: '' },

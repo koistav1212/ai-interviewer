@@ -1,14 +1,20 @@
 const { Job, Application, Interview } = require('../models');
 const pdfParse = require('pdf-parse');
 const { OpenAI } = require('openai');
+const jobProcessor = require('../services/jobProcessor');
 
 exports.createJob = async (req, res, next) => {
   try {
-    const { title, description, location, salaryRange, skills, department, vacancies, experience, requirements, benefits } = req.body;
+    const { title, description, location, salaryRange, skills, department, vacancies, experience, requirements, benefits, company } = req.body;
     const recruiterId = req.user.id;
 
-    if (!title || !description) {
-      return res.status(400).json({ message: 'Title and description are required' });
+    if (!title) {
+      return res.status(400).json({ message: 'Title is required' });
+    }
+
+    const finalDescription = description || requirements || `Role requirements: ${requirements || ''}`;
+    if (!finalDescription.trim()) {
+      return res.status(400).json({ message: 'Description or requirements are required' });
     }
 
     const skillsData = (skills && Array.isArray(skills)) ? skills.map(skill => ({
@@ -18,8 +24,9 @@ exports.createJob = async (req, res, next) => {
 
     const job = await Job.create({
       recruiterId,
+      company: company || 'Google',
       title,
-      description,
+      description: finalDescription,
       location,
       salaryRange,
       department,
@@ -29,6 +36,10 @@ exports.createJob = async (req, res, next) => {
       benefits,
       skills: skillsData
     });
+
+    // Automatically trigger the RAG ingestion pipeline in the background
+    jobProcessor.processJob(job.id, job.company)
+      .catch(err => console.error('Job ingestion background error:', err));
 
     return res.status(201).json(job);
   } catch (err) {
@@ -205,6 +216,28 @@ ${rawText}
     }
 
     return res.status(200).json({ message: 'JD parsed successfully', parsedJD: structuredJson });
+  } catch (err) {
+    next(err);
+  }
+};
+
+exports.ingestJob = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const job = await Job.findById(id);
+    if (!job) {
+      return res.status(404).json({ message: 'Job not found' });
+    }
+
+    // Trigger ingestion process in the background
+    jobProcessor.processJob(job.id, job.company || 'Google')
+      .catch(err => console.error('Manual ingestion background error:', err));
+
+    return res.status(200).json({
+      message: 'Ingestion pipeline triggered successfully',
+      jobId: job.id,
+      company: job.company || 'Google'
+    });
   } catch (err) {
     next(err);
   }

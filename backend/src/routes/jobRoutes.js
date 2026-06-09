@@ -13,6 +13,7 @@ router.post('/create', roleMiddleware(['RECRUITER', 'ADMIN']), jobController.cre
 router.post('/upload-jd', roleMiddleware(['RECRUITER', 'ADMIN']), upload.single('jdFile'), jobController.uploadJD);
 router.get('/my-jobs', roleMiddleware(['RECRUITER', 'ADMIN']), jobController.getMyJobs);
 router.get('/:id', jobController.getJobDetails);
+router.post('/:id/ingest', roleMiddleware(['RECRUITER', 'ADMIN']), jobController.ingestJob);
 
 // Note: the endpoints use Application ID under the hood
 router.post('/:id/shortlist', roleMiddleware(['RECRUITER', 'ADMIN']), jobController.shortlistApplication);
