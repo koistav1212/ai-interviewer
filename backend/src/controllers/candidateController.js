@@ -1,6 +1,5 @@
 const { CandidateProfile, Job, Application } = require('../models');
 const pdfParse = require('pdf-parse');
-const { OpenAI } = require('openai');
 
 
 exports.updateProfile = async (req, res, next) => {
@@ -108,91 +107,52 @@ exports.uploadResume = async (req, res, next) => {
     }
 
     const userId = req.user.id;
-
-    // 1. Parse PDF to extract raw text
-    console.log('Extracting text from uploaded PDF using pdf-parse...');
-    let rawText = '';
-    try {
-      const parser = new pdfParse.PDFParse(new Uint8Array(req.file.buffer));
-      const pdfData = await parser.getText();
-      rawText = pdfData.text;
-    } catch (parseErr) {
-      console.warn('pdf-parse failed, falling back to reading buffer as text:', parseErr.message);
-      rawText = req.file.buffer.toString('utf-8');
-    }
-
-    if (!rawText || !rawText.trim()) {
-      return res.status(400).json({ message: 'Could not extract text from the PDF. It may be empty or scanned.' });
-    }
-
-    // 2. Parse using OpenAI GPT structured outputs
+    const aiServiceUrl = process.env.AI_SERVICE_URL;
     let structuredJson = null;
-    const openaiKey = process.env.OPENAI_API_KEY;
+    let rawText = '';
 
-    if (openaiKey) {
-      console.log('Structuring resume text using OpenAI GPT...');
-      const openai = new OpenAI({ apiKey: openaiKey });
-      
-      const prompt = `
-You are an expert recruitment AI. Parse the following candidate resume text into the exact JSON format specified below.
-Ensure you represent all data fields accurately without bias.
-
-JSON SCHEMA:
-{
-  "personalInfo": {
-    "fullName": "Candidate full name",
-    "email": "Email address",
-    "phone": "Phone number",
-    "location": "City, State, Country"
-  },
-  "education": [
-    {
-      "institution": "School/College name",
-      "degree": "Degree / Qualification (e.g. B.Tech, MBA, Class XII)",
-      "passingYear": "Graduation year",
-      "score": "Percentage (MUST be percentage for Class 10/Secondary and Class 12/Higher Secondary, e.g. 92%. Undergrad and higher can be GPA/CGPA/SGPA/YGPA or percentage)"
-    }
-  ],
-  "experience": [
-    {
-      "company": "Company name",
-      "role": "Job role / title",
-      "duration": "Duration of employment (e.g. 17 Months, 2 Years)",
-      "responsibilities": "Summary of achievements/responsibilities"
-    }
-  ],
-  "skills": ["Skill1", "Skill2"],
-  "projects": [
-    {
-      "title": "Project name",
-      "description": "Project description and outcomes"
-    }
-  ],
-  "certifications": ["Certification name or title"],
-  "achievements": ["Achievement detail"],
-  "languages": ["Language name"]
-}
-
-RESUME TEXT:
-${rawText}
-`;
-
+    if (aiServiceUrl) {
+      console.log(`Forwarding Resume PDF to FastAPI service at ${aiServiceUrl}/parse-resume...`);
       try {
-        const response = await openai.chat.completions.create({
-          model: 'gpt-4o-mini',
-          messages: [{ role: 'user', content: prompt }],
-          response_format: { type: 'json_object' },
+        const formData = new FormData();
+        const blob = new Blob([req.file.buffer], { type: req.file.mimetype });
+        formData.append('file', blob, req.file.originalname);
+
+        const response = await fetch(`${aiServiceUrl}/parse-resume`, {
+          method: 'POST',
+          body: formData,
         });
 
-        structuredJson = JSON.parse(response.choices[0].message.content);
-      } catch (gptErr) {
-        console.error('OpenAI GPT structuring failed, falling back to heuristic parser:', gptErr);
+        if (response.ok) {
+          const result = await response.json();
+          structuredJson = result.parsedResume;
+          rawText = result.rawText;
+          console.log('✅ Resume structured fields extracted successfully via FastAPI & Groq');
+        } else {
+          const errorText = await response.text();
+          console.warn(`FastAPI resume parser returned error: ${response.status} - ${errorText}`);
+        }
+      } catch (err) {
+        console.error('Failed to parse resume via FastAPI, falling back to local parsing:', err.message);
       }
     }
 
-    // 3. Fallback Heuristic Parser if GPT failed or API key is missing
     if (!structuredJson) {
-      console.log('Running fallback heuristic resume text parser...');
+      // Local fallback parsing (pdf-parse + heuristic)
+      console.log('Running fallback local PDF text parser and heuristic parser...');
+      try {
+        const parser = new pdfParse.PDFParse(new Uint8Array(req.file.buffer));
+        const pdfData = await parser.getText();
+        rawText = pdfData.text;
+      } catch (parseErr) {
+        console.warn('pdf-parse failed, reading buffer as text fallback:', parseErr.message);
+        rawText = req.file.buffer.toString('utf-8');
+      }
+
+      if (!rawText || !rawText.trim()) {
+        return res.status(400).json({ message: 'Could not extract text from the PDF. It may be empty or scanned.' });
+      }
+
       structuredJson = parseResumeTextHeuristic(rawText);
     }
 

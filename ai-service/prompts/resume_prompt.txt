@@ -1,0 +1,46 @@
+You are an expert recruitment AI. Parse the following candidate resume text into the exact JSON format specified below.
+Ensure you represent all data fields accurately without bias.
+
+JSON SCHEMA:
+{
+  "personalInfo": {
+    "fullName": null,
+    "email": null,
+    "phone": null,
+    "location": null
+  },
+  "education": [
+    {
+      "institution": "School/College name",
+      "degree": "Degree / Qualification (e.g. B.Tech, MBA, Class XII)",
+      "passingYear": "Graduation year",
+      "score": "Percentage or GPA/CGPA"
+    }
+  ],
+  "experience": [
+    {
+      "company": "Company name",
+      "role": "Job role / title",
+      "duration": "Duration of employment (e.g. 17 Months, 2 Years)",
+      "responsibilities": "Summary of achievements/responsibilities"
+    }
+  ],
+  "skills": [],
+  "projects": [
+    {
+      "title": "Project name",
+      "description": "Project description and outcomes"
+    }
+  ],
+  "certifications": [],
+  "achievements": [],
+  "languages": []
+}
+
+Rules:
+1. Extract ONLY information explicitly present in the text. Do not make up facts.
+2. If any field or object attribute is missing/not present, return null for scalar properties and an empty list [] for array properties.
+3. Return ONLY valid JSON block matching the schema. Do not return extra text.
+
+RESUME TEXT:
+{resume_text}
