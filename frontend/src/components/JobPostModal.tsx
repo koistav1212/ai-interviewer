@@ -11,6 +11,7 @@ interface JobPostModalProps {
 
 export default function JobPostModal({ isOpen, onClose, onSuccess }: JobPostModalProps) {
   const [title, setTitle] = useState("");
+  const [company, setCompany] = useState("Google");
   const [department, setDepartment] = useState("");
   const [location, setLocation] = useState("");
   const [salaryRange, setSalaryRange] = useState("");
@@ -40,6 +41,7 @@ export default function JobPostModal({ isOpen, onClose, onSuccess }: JobPostModa
         if (response?.parsedJD) {
           const jd = response.parsedJD;
           setTitle(jd.title || "");
+          setCompany(jd.company || jd.companyName || "Google");
           setDepartment(jd.department || "");
           setLocation(jd.location || "");
           setSalaryRange(jd.salaryRange || "");
@@ -79,6 +81,7 @@ export default function JobPostModal({ isOpen, onClose, onSuccess }: JobPostModa
       }));
 
       await api.jobs.create({
+        company,
         title,
         department,
         location,
@@ -97,6 +100,7 @@ export default function JobPostModal({ isOpen, onClose, onSuccess }: JobPostModa
         onClose();
         // Reset state
         setTitle("");
+        setCompany("Google");
         setDepartment("");
         setLocation("");
         setSalaryRange("");
@@ -172,6 +176,18 @@ export default function JobPostModal({ isOpen, onClose, onSuccess }: JobPostModa
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+              <label style={{ fontSize: '0.85rem', fontWeight: 500, color: 'var(--foreground)' }}>Company Name *</label>
+              <input 
+                type="text" 
+                placeholder="e.g. Google" 
+                required 
+                value={company} 
+                onChange={(e) => setCompany(e.target.value)}
+                disabled={publishing}
+                style={{ padding: '0.6rem 0.8rem', borderRadius: '8px', border: '1px solid var(--border)', background: 'var(--background)', color: 'var(--foreground)' }}
+              />
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
               <label style={{ fontSize: '0.85rem', fontWeight: 500, color: 'var(--foreground)' }}>Job Title *</label>
               <input 
                 type="text" 
@@ -183,6 +199,9 @@ export default function JobPostModal({ isOpen, onClose, onSuccess }: JobPostModa
                 style={{ padding: '0.6rem 0.8rem', borderRadius: '8px', border: '1px solid var(--border)', background: 'var(--background)', color: 'var(--foreground)' }}
               />
             </div>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
               <label style={{ fontSize: '0.85rem', fontWeight: 500, color: 'var(--foreground)' }}>Department</label>
               <input 
@@ -194,9 +213,6 @@ export default function JobPostModal({ isOpen, onClose, onSuccess }: JobPostModa
                 style={{ padding: '0.6rem 0.8rem', borderRadius: '8px', border: '1px solid var(--border)', background: 'var(--background)', color: 'var(--foreground)' }}
               />
             </div>
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
               <label style={{ fontSize: '0.85rem', fontWeight: 500, color: 'var(--foreground)' }}>Location</label>
               <input 
@@ -208,6 +224,9 @@ export default function JobPostModal({ isOpen, onClose, onSuccess }: JobPostModa
                 style={{ padding: '0.6rem 0.8rem', borderRadius: '8px', border: '1px solid var(--border)', background: 'var(--background)', color: 'var(--foreground)' }}
               />
             </div>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
               <label style={{ fontSize: '0.85rem', fontWeight: 500, color: 'var(--foreground)' }}>Salary Range</label>
               <input 
@@ -215,6 +234,17 @@ export default function JobPostModal({ isOpen, onClose, onSuccess }: JobPostModa
                 placeholder="e.g. $120,000 - $150,000" 
                 value={salaryRange} 
                 onChange={(e) => setSalaryRange(e.target.value)}
+                disabled={publishing}
+                style={{ padding: '0.6rem 0.8rem', borderRadius: '8px', border: '1px solid var(--border)', background: 'var(--background)', color: 'var(--foreground)' }}
+              />
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+              <label style={{ fontSize: '0.85rem', fontWeight: 500, color: 'var(--foreground)' }}>Experience Required</label>
+              <input 
+                type="text" 
+                placeholder="e.g. 3-5 Years" 
+                value={experience} 
+                onChange={(e) => setExperience(e.target.value)}
                 disabled={publishing}
                 style={{ padding: '0.6rem 0.8rem', borderRadius: '8px', border: '1px solid var(--border)', background: 'var(--background)', color: 'var(--foreground)' }}
               />
@@ -229,17 +259,6 @@ export default function JobPostModal({ isOpen, onClose, onSuccess }: JobPostModa
                 min="1"
                 value={vacancies} 
                 onChange={(e) => setVacancies(e.target.value)}
-                disabled={publishing}
-                style={{ padding: '0.6rem 0.8rem', borderRadius: '8px', border: '1px solid var(--border)', background: 'var(--background)', color: 'var(--foreground)' }}
-              />
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
-              <label style={{ fontSize: '0.85rem', fontWeight: 500, color: 'var(--foreground)' }}>Experience Required</label>
-              <input 
-                type="text" 
-                placeholder="e.g. 3-5 Years" 
-                value={experience} 
-                onChange={(e) => setExperience(e.target.value)}
                 disabled={publishing}
                 style={{ padding: '0.6rem 0.8rem', borderRadius: '8px', border: '1px solid var(--border)', background: 'var(--background)', color: 'var(--foreground)' }}
               />

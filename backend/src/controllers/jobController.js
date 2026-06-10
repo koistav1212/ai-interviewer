@@ -152,67 +152,80 @@ exports.uploadJD = async (req, res, next) => {
       return res.status(400).json({ message: 'No file uploaded' });
     }
 
-    console.log('Extracting text from uploaded JD PDF...');
-    let rawText = '';
-    try {
-      const parser = new pdfParse.PDFParse(new Uint8Array(req.file.buffer));
-      const pdfData = await parser.getText();
-      rawText = pdfData.text;
-    } catch (parseErr) {
-      console.warn('pdf-parse failed, reading buffer as text fallback:', parseErr.message);
-      rawText = req.file.buffer.toString('utf-8');
-    }
-
-    if (!rawText || !rawText.trim()) {
-      return res.status(400).json({ message: 'Could not extract text from the PDF. It may be empty or scanned.' });
-    }
-
+    const aiServiceUrl = process.env.AI_SERVICE_URL;
     let structuredJson = null;
-    const openaiKey = process.env.OPENAI_API_KEY;
 
-    if (openaiKey) {
-      console.log('Structuring JD text using OpenAI...');
-      const openai = new OpenAI({ apiKey: openaiKey });
-      const prompt = `
-You are an expert recruitment AI. Parse the following job description text into the exact JSON format specified below.
-Ensure you represent all data fields accurately.
-
-JSON SCHEMA:
-{
-  "title": "Job title (e.g. Data Analyst)",
-  "department": "Department or domain (e.g. Data Science)",
-  "location": "Location (e.g. Kolkata, WB (Hybrid))",
-  "salaryRange": "Salary range or compensation (e.g. $90k - $120k)",
-  "vacancies": 3,
-  "experience": "Experience requirements (e.g. 2-4 Years)",
-  "description": "General description of the company and job role",
-  "requirements": "Key requirements, qualifications, and criteria",
-  "benefits": "Benefits, perks, and compensation details",
-  "skills": [
-    { "name": "Skill1", "weight": 30 },
-    { "name": "Skill2", "weight": 20 }
-  ]
-}
-
-JOB TEXT:
-${rawText}
-`;
-
+    if (aiServiceUrl) {
+      console.log(`Forwarding JD PDF to FastAPI service at ${aiServiceUrl}/parse-jd...`);
       try {
-        const response = await openai.chat.completions.create({
-          model: 'gpt-4o-mini',
-          messages: [{ role: 'user', content: prompt }],
-          response_format: { type: 'json_object' },
+        const formData = new FormData();
+        const blob = new Blob([req.file.buffer], { type: req.file.mimetype });
+        formData.append('file', blob, req.file.originalname);
+
+        const response = await fetch(`${aiServiceUrl}/parse-jd`, {
+          method: 'POST',
+          body: formData,
         });
-        structuredJson = JSON.parse(response.choices[0].message.content);
-      } catch (gptErr) {
-        console.error('OpenAI GPT structuring failed, falling back to heuristic parser:', gptErr);
+
+        if (response.ok) {
+          const result = await response.json();
+          structuredJson = result.parsedJD;
+          console.log('✅ Structured JD parsed successfully via FastAPI');
+        } else {
+          const errorText = await response.text();
+          console.warn(`FastAPI parser returned error: ${response.status} - ${errorText}`);
+        }
+      } catch (err) {
+        console.error('Failed to parse JD via FastAPI, falling back to heuristic parsing:', err.message);
       }
     }
 
     if (!structuredJson) {
-      console.log('Running fallback heuristic JD parser...');
+      console.log('Running fallback local heuristic PDF text parser...');
+      let rawText = '';
+      try {
+        const parser = new pdfParse.PDFParse(new Uint8Array(req.file.buffer));
+        const pdfData = await parser.getText();
+        rawText = pdfData.text;
+      } catch (parseErr) {
+        console.warn('pdf-parse failed, reading buffer as text fallback:', parseErr.message);
+        rawText = req.file.buffer.toString('utf-8');
+      }
+
+      if (!rawText || !rawText.trim()) {
+        return res.status(400).json({ message: 'Could not extract text from the PDF. It may be empty or scanned.' });
+      }
+
       structuredJson = parseJDTextHeuristic(rawText);
+    }
+
+    // --- Normalize fields for Frontend Compatibility ---
+    // 1. Convert benefits array to comma-separated string
+    if (Array.isArray(structuredJson.benefits)) {
+      structuredJson.benefits = structuredJson.benefits.join(', ');
+    }
+
+    // 2. Map skills array of strings/objects into [{ name: skillName, weight: 20 }]
+    if (Array.isArray(structuredJson.skills)) {
+      structuredJson.skills = structuredJson.skills.map(skill => {
+        if (typeof skill === 'string') {
+          return { name: skill, weight: 20 };
+        } else if (skill && typeof skill === 'object' && skill.name) {
+          return skill;
+        }
+        return { name: String(skill), weight: 20 };
+      });
+    }
+
+    // 3. Append responsibilities list to description
+    if (Array.isArray(structuredJson.responsibilities) && structuredJson.responsibilities.length > 0) {
+      const respList = structuredJson.responsibilities.map(r => `• ${r}`).join('\n');
+      structuredJson.description = `${structuredJson.description || ''}\n\nKey Responsibilities:\n${respList}`.trim();
+    }
+
+    // 4. Default companyName to company key
+    if (structuredJson.companyName) {
+      structuredJson.company = structuredJson.companyName;
     }
 
     return res.status(200).json({ message: 'JD parsed successfully', parsedJD: structuredJson });
