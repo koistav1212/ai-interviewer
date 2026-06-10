@@ -1,7 +1,7 @@
 import os
 import shutil
 from fastapi import APIRouter, UploadFile, File, HTTPException
-from services.jd_parser import extract_text_from_pdf, parse_jd_with_groq
+from services.jd_parser import extract_text_from_pdf, parse_jd_with_groq, generate_job_intelligence
 
 router = APIRouter()
 
@@ -13,7 +13,7 @@ os.makedirs(UPLOAD_DIR, exist_ok=True)
 async def parse_jd(file: UploadFile = File(...)):
     """
     Saves the uploaded PDF, extracts text, calls Groq parser,
-    cleans up the file, and returns structured job details.
+    cleans up the file, and returns structured job details + intelligence.
     """
     if not file.filename.endswith('.pdf'):
         raise HTTPException(
@@ -40,10 +40,18 @@ async def parse_jd(file: UploadFile = File(...)):
         # 3. Perform Groq structured extraction
         print("🤖 Running structured extraction via Groq...")
         structured_data = parse_jd_with_groq(jd_text)
+        
+        # Add raw text snippet for RAG purposes
+        structured_data["rawText"] = jd_text[:15000]
+
+        # 4. Generate Job Intelligence
+        print("🤖 Running job intelligence extraction...")
+        job_intelligence = generate_job_intelligence(structured_data)
 
         return {
             "message": "JD parsed successfully",
-            "parsedJD": structured_data
+            "parsedJD": structured_data,
+            "jobIntelligence": job_intelligence
         }
     except Exception as e:
         print(f"❌ Failed to parse JD: {str(e)}")

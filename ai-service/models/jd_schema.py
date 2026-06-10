@@ -1,18 +1,28 @@
-from pydantic import BaseModel, Field
-from typing import List, Optional
+from pydantic import BaseModel
+from typing import Optional, List
 
-class JDSchema(BaseModel):
-    companyName: Optional[str] = Field(None, description="Name of the company if explicitly mentioned")
-    title: Optional[str] = Field(None, description="Job Title")
-    department: Optional[str] = Field(None, description="Department or business unit")
-    location: Optional[str] = Field(None, description="Job location")
-    salaryRange: Optional[str] = Field(None, description="Salary or compensation range if explicitly mentioned")
-    vacancies: Optional[int] = Field(None, description="Number of openings if explicitly mentioned")
-    experience: Optional[str] = Field(None, description="Required experience if explicitly mentioned")
-    employmentType: Optional[str] = Field(None, description="Type of employment (e.g. Full-time, Contract)")
-    description: Optional[str] = Field(None, description="General job description")
-    requirements: Optional[str] = Field(None, description="Key requirements and qualifications")
-    benefits: List[str] = Field(default_factory=list, description="Benefits and perks array")
-    skills: List[str] = Field(default_factory=list, description="List of technical and business skills")
-    seniority: Optional[str] = Field(None, description="Seniority level (e.g. Junior, Mid, Senior)")
-    responsibilities: List[str] = Field(default_factory=list, description="List of key responsibilities as bullet points")
+class ParsedJD(BaseModel):
+    companyName: Optional[str] = None
+    title: Optional[str] = None
+    department: Optional[str] = None
+    location: Optional[str] = None
+    salaryRange: Optional[str] = None
+    vacancies: Optional[int] = None
+    experience: Optional[str] = None
+    employmentType: Optional[str] = None
+    industry: Optional[str] = None
+    seniority: Optional[str] = None
+    requiredSkills: List[str] = []
+    preferredSkills: List[str] = []
+    responsibilities: List[str] = []
+    benefits: List[str] = []
+    education: List[str] = []
+    eligibility: List[str] = []
+    backlogsAllowed: Optional[bool] = None
+    certifications: List[str] = []
+    tools: List[str] = []
+    technologies: List[str] = []
+    softSkills: List[str] = []
+    keywords: List[str] = []
+    interviewTopics: List[str] = []
+    rawText: Optional[str] = ""

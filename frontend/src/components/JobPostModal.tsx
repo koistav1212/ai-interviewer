@@ -11,7 +11,7 @@ interface JobPostModalProps {
 
 export default function JobPostModal({ isOpen, onClose, onSuccess }: JobPostModalProps) {
   const [title, setTitle] = useState("");
-  const [company, setCompany] = useState("Google");
+  const [company, setCompany] = useState("");
   const [department, setDepartment] = useState("");
   const [location, setLocation] = useState("");
   const [salaryRange, setSalaryRange] = useState("");
@@ -21,6 +21,9 @@ export default function JobPostModal({ isOpen, onClose, onSuccess }: JobPostModa
   const [requirements, setRequirements] = useState("");
   const [benefits, setBenefits] = useState("");
   const [skills, setSkills] = useState<any[]>([]);
+  const [rawText, setRawText] = useState("");
+  const [parsedJD, setParsedJD] = useState<any>(null);
+  const [jobIntelligence, setJobIntelligence] = useState<any>(null);
 
   const [parsing, setParsing] = useState(false);
   const [publishing, setPublishing] = useState(false);
@@ -41,7 +44,7 @@ export default function JobPostModal({ isOpen, onClose, onSuccess }: JobPostModa
         if (response?.parsedJD) {
           const jd = response.parsedJD;
           setTitle(jd.title || "");
-          setCompany(jd.company || jd.companyName || "Google");
+          setCompany(jd.company || jd.companyName || "");
           setDepartment(jd.department || "");
           setLocation(jd.location || "");
           setSalaryRange(jd.salaryRange || "");
@@ -51,6 +54,9 @@ export default function JobPostModal({ isOpen, onClose, onSuccess }: JobPostModa
           setRequirements(jd.requirements || "");
           setBenefits(jd.benefits || "");
           setSkills(jd.skills || []);
+          setRawText(jd.rawText || "");
+          setParsedJD(response.rawParsedJD || response.parsedJD || null);
+          setJobIntelligence(response.jobIntelligence || null);
           setSuccessMsg("🎉 Job Description PDF parsed and fields populated successfully!");
         }
       } catch (err: any) {
@@ -91,7 +97,10 @@ export default function JobPostModal({ isOpen, onClose, onSuccess }: JobPostModa
         description,
         requirements,
         benefits,
-        skills: skillsPayload
+        skills: skillsPayload,
+        rawText,
+        parsedJD,
+        jobIntelligence
       });
 
       setSuccessMsg("🎉 Job posted successfully!");
@@ -100,7 +109,7 @@ export default function JobPostModal({ isOpen, onClose, onSuccess }: JobPostModa
         onClose();
         // Reset state
         setTitle("");
-        setCompany("Google");
+        setCompany("");
         setDepartment("");
         setLocation("");
         setSalaryRange("");
@@ -110,6 +119,9 @@ export default function JobPostModal({ isOpen, onClose, onSuccess }: JobPostModa
         setRequirements("");
         setBenefits("");
         setSkills([]);
+        setRawText("");
+        setParsedJD(null);
+        setJobIntelligence(null);
         setSuccessMsg("");
       }, 1000);
     } catch (err: any) {

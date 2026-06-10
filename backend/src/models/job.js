@@ -7,7 +7,7 @@ const JobSkillSchema = new mongoose.Schema({
 
 const JobSchema = new mongoose.Schema({
   recruiterId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-  company: { type: String, default: 'Google' },
+  company: { type: String, default: null },
   title: { type: String, required: true },
   description: { type: String, required: true },
   location: { type: String, default: '' },
@@ -18,7 +18,10 @@ const JobSchema = new mongoose.Schema({
   department: { type: String, default: '' },
   vacancies: { type: Number, default: 1 },
   experience: { type: String, default: '' },
-  skills: [JobSkillSchema]
+  skills: [JobSkillSchema],
+  rawText: { type: String, default: '' },
+  parsedJD: { type: mongoose.Schema.Types.Mixed, default: null },
+  jobIntelligence: { type: mongoose.Schema.Types.Mixed, default: null }
 }, {
   timestamps: true,
   toJSON: {

@@ -5,7 +5,7 @@ const jobProcessor = require('../services/jobProcessor');
 
 exports.createJob = async (req, res, next) => {
   try {
-    const { title, description, location, salaryRange, skills, department, vacancies, experience, requirements, benefits, company } = req.body;
+    const { title, description, location, salaryRange, skills, department, vacancies, experience, requirements, benefits, company, rawText, parsedJD, jobIntelligence } = req.body;
     const recruiterId = req.user.id;
 
     if (!title) {
@@ -24,7 +24,7 @@ exports.createJob = async (req, res, next) => {
 
     const job = await Job.create({
       recruiterId,
-      company: company || 'Google',
+      company: company || null,
       title,
       description: finalDescription,
       location,
@@ -34,11 +34,14 @@ exports.createJob = async (req, res, next) => {
       experience,
       requirements,
       benefits,
-      skills: skillsData
+      skills: skillsData,
+      rawText: rawText || '',
+      parsedJD: parsedJD || null,
+      jobIntelligence: jobIntelligence || null
     });
 
     // Automatically trigger the RAG ingestion pipeline in the background
-    jobProcessor.processJob(job.id, job.company)
+    jobProcessor.processJob(job.id)
       .catch(err => console.error('Job ingestion background error:', err));
 
     return res.status(201).json(job);
@@ -154,6 +157,7 @@ exports.uploadJD = async (req, res, next) => {
 
     const aiServiceUrl = process.env.AI_SERVICE_URL;
     let structuredJson = null;
+    let jobIntelligence = null;
 
     if (aiServiceUrl) {
       console.log(`Forwarding JD PDF to FastAPI service at ${aiServiceUrl}/parse-jd...`);
@@ -170,6 +174,7 @@ exports.uploadJD = async (req, res, next) => {
         if (response.ok) {
           const result = await response.json();
           structuredJson = result.parsedJD;
+          jobIntelligence = result.jobIntelligence;
           console.log('✅ Structured JD parsed successfully via FastAPI');
         } else {
           const errorText = await response.text();
@@ -197,7 +202,18 @@ exports.uploadJD = async (req, res, next) => {
       }
 
       structuredJson = parseJDTextHeuristic(rawText);
+      
+      // Setup heuristic job intelligence fallback
+      jobIntelligence = {
+        difficulty: "Medium",
+        domain: structuredJson.title === "Data Analyst" ? "Data Analytics" : "Software Engineering",
+        technicalTopics: ["JavaScript", "SQL", "React", "Node.js"],
+        behavioralTopics: ["Communication", "Problem Solving"]
+      };
     }
+
+    // Keep an unmutated clone of the original parsed schema for DB storage
+    const rawParsedJD = JSON.parse(JSON.stringify(structuredJson));
 
     // --- Normalize fields for Frontend Compatibility ---
     // 1. Convert benefits array to comma-separated string
@@ -205,30 +221,51 @@ exports.uploadJD = async (req, res, next) => {
       structuredJson.benefits = structuredJson.benefits.join(', ');
     }
 
-    // 2. Map skills array of strings/objects into [{ name: skillName, weight: 20 }]
-    if (Array.isArray(structuredJson.skills)) {
-      structuredJson.skills = structuredJson.skills.map(skill => {
+    // 2. Map requiredSkills and preferredSkills to skills list [{ name, importance, weight }]
+    let normalizedSkills = [];
+    if (Array.isArray(structuredJson.requiredSkills)) {
+      normalizedSkills = normalizedSkills.concat(
+        structuredJson.requiredSkills.map(skill => ({ name: skill, importance: 'REQUIRED', weight: 25 }))
+      );
+    }
+    if (Array.isArray(structuredJson.preferredSkills)) {
+      normalizedSkills = normalizedSkills.concat(
+        structuredJson.preferredSkills.map(skill => ({ name: skill, importance: 'PREFERRED', weight: 15 }))
+      );
+    }
+    
+    // Fallback if required/preferred is missing but old skills field exists
+    if (normalizedSkills.length === 0 && Array.isArray(structuredJson.skills)) {
+      normalizedSkills = structuredJson.skills.map(skill => {
         if (typeof skill === 'string') {
-          return { name: skill, weight: 20 };
-        } else if (skill && typeof skill === 'object' && skill.name) {
-          return skill;
+          return { name: skill, importance: 'REQUIRED', weight: 20 };
         }
-        return { name: String(skill), weight: 20 };
+        return { name: skill.name || String(skill), importance: skill.importance || 'REQUIRED', weight: skill.weight || 20 };
       });
     }
+    structuredJson.skills = normalizedSkills;
 
     // 3. Append responsibilities list to description
     if (Array.isArray(structuredJson.responsibilities) && structuredJson.responsibilities.length > 0) {
       const respList = structuredJson.responsibilities.map(r => `• ${r}`).join('\n');
-      structuredJson.description = `${structuredJson.description || ''}\n\nKey Responsibilities:\n${respList}`.trim();
+      structuredJson.description = `${structuredJson.description || ''}\n\nResponsibilities:\n${respList}`.trim();
     }
 
-    // 4. Default companyName to company key
-    if (structuredJson.companyName) {
-      structuredJson.company = structuredJson.companyName;
+    // 4. Append education list to requirements
+    if (Array.isArray(structuredJson.education) && structuredJson.education.length > 0) {
+      const eduList = structuredJson.education.map(e => `• ${e}`).join('\n');
+      structuredJson.requirements = `${structuredJson.requirements || ''}\n\nEducation Requirements:\n${eduList}`.trim();
     }
 
-    return res.status(200).json({ message: 'JD parsed successfully', parsedJD: structuredJson });
+    // 5. Save companyName to company key
+    structuredJson.company = structuredJson.companyName || null;
+
+    return res.status(200).json({
+      message: 'JD parsed successfully',
+      parsedJD: structuredJson,
+      rawParsedJD,
+      jobIntelligence
+    });
   } catch (err) {
     next(err);
   }
@@ -243,13 +280,13 @@ exports.ingestJob = async (req, res, next) => {
     }
 
     // Trigger ingestion process in the background
-    jobProcessor.processJob(job.id, job.company || 'Google')
+    jobProcessor.processJob(job.id)
       .catch(err => console.error('Manual ingestion background error:', err));
 
     return res.status(200).json({
       message: 'Ingestion pipeline triggered successfully',
       jobId: job.id,
-      company: job.company || 'Google'
+      company: job.company || null
     });
   } catch (err) {
     next(err);

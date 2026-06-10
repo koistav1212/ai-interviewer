@@ -157,6 +157,7 @@ function chunkDocument(doc, targetCount) {
         text: `Placeholder chunk ${i + 1} for ${doc.source}`,
         company: doc.company,
         jobId: doc.jobId,
+        role: doc.role,
         chunkIndex: i
       });
     }
@@ -176,6 +177,7 @@ function chunkDocument(doc, targetCount) {
       text: chunkText,
       company: doc.company,
       jobId: doc.jobId,
+      role: doc.role,
       chunkIndex: i
     });
   }
@@ -216,6 +218,7 @@ async function generateEmbeddings(chunks) {
       text: chunk.text,
       company: chunk.company,
       jobId: chunk.jobId,
+      role: chunk.role,
       chunkIndex: chunk.chunkIndex
     });
   }
@@ -236,8 +239,8 @@ async function storeVectors(vectors) {
         vector: v.vector,
         payload: {
           jobId: v.jobId ? v.jobId.toString() : '',
-          company: v.company || 'Google',
-          role: 'Software Engineer',
+          company: v.company || null,
+          role: v.role || 'Software Engineer',
           text: v.text,
           chunkIndex: v.chunkIndex
         }
@@ -247,7 +250,7 @@ async function storeVectors(vectors) {
         id: v.id,
         vector: v.vector,
         payload: {
-          company: v.company || 'Google',
+          company: v.company || null,
           source: v.source,
           text: v.text,
           jobId: v.jobId ? v.jobId.toString() : '',
@@ -284,18 +287,18 @@ async function processJob(jobId) {
   }
 
   // 2. Generate company intelligence
-  const companyDocs = await getCompanyKnowledge(
-    job.company || 'Google',
-    jobId
-  );
+  const companyDocs = job.company
+    ? await getCompanyKnowledge(job.company, jobId)
+    : [];
 
   // 3. Create documents
   const documents = [
     {
       source: "job-description",
       text: job.description,
-      company: job.company || 'Google',
-      jobId: jobId
+      company: job.company || null,
+      jobId: jobId,
+      role: job.title
     },
     ...companyDocs
   ];

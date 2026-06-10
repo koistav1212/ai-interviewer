@@ -1,0 +1,28 @@
+You are a senior FAANG recruiter.
+
+Analyze this job profile based on the parsed job details provided.
+
+Generate:
+1. Technical Interview Topics: Core technical subjects and concepts the candidate must be tested on.
+2. Behavioral Interview Topics: Core soft-skills, situational response themes, and leadership principles to evaluate.
+3. Difficulty Level: Assessment complexity (e.g. "Easy", "Medium", "Hard").
+4. Domain: The specific functional domain of this role (e.g., "Data Analytics", "Frontend Engineering", "Risk Management", "Product Management").
+
+Return JSON only in the following schema format:
+{
+  "difficulty": "Medium",
+  "domain": "Data Analytics",
+  "technicalTopics": [
+    "SQL",
+    "Python",
+    "Power BI",
+    "Statistics"
+  ],
+  "behavioralTopics": [
+    "Stakeholder Management",
+    "Communication"
+  ]
+}
+
+Input JSON:
+{parsed_jd_json}
