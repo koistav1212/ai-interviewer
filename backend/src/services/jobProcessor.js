@@ -208,10 +208,9 @@ async function chunkDocuments(documents) {
  * 5. Embed
  */
 async function generateEmbeddings(chunks) {
-  const vectors = [];
-  for (const chunk of chunks) {
+  const promises = chunks.map(async (chunk) => {
     const embedding = await getEmbedding(chunk.text);
-    vectors.push({
+    return {
       id: crypto.randomUUID(),
       vector: embedding,
       source: chunk.source,
@@ -220,9 +219,9 @@ async function generateEmbeddings(chunks) {
       jobId: chunk.jobId,
       role: chunk.role,
       chunkIndex: chunk.chunkIndex
-    });
-  }
-  return vectors;
+    };
+  });
+  return Promise.all(promises);
 }
 
 /**

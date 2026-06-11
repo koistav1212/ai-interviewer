@@ -3,20 +3,28 @@ const { getEmbedding } = require('../services/embeddingService');
 const { qdrant } = require('../config/qdrant');
 
 // Helper to query Qdrant collections
-async function getContextChunks(collectionName, queryText, companyFilter = null) {
+async function getContextChunks(collectionName, queryText, companyFilter = null, jobIdFilter = null) {
   try {
     const embedding = await getEmbedding(queryText);
     const searchParams = {
       vector: embedding,
       limit: 5
     };
+    
+    const mustFilters = [];
     if (companyFilter) {
+      mustFilters.push({ key: 'company', match: { value: companyFilter } });
+    }
+    if (jobIdFilter) {
+      mustFilters.push({ key: 'jobId', match: { value: jobIdFilter } });
+    }
+    
+    if (mustFilters.length > 0) {
       searchParams.filter = {
-        must: [
-          { key: 'company', match: { value: companyFilter } }
-        ]
+        must: mustFilters
       };
     }
+    
     const results = await qdrant.search(collectionName, searchParams);
     return results.map(r => r.payload?.text || '').join('\n\n');
   } catch (err) {
@@ -230,7 +238,7 @@ exports.startInterviewSession = async (req, res, next) => {
     // Query Qdrant for Job Context and Company Context
     console.log('Retrieving Qdrant chunks for Job Context and Company Context...');
     const jobQuery = job.description || job.title;
-    const jobContext = await getContextChunks('job_knowledge', jobQuery);
+    const jobContext = await getContextChunks('job_knowledge', jobQuery, null, job.id.toString());
     
     const companyContext = job.company 
       ? await getContextChunks('company_knowledge', `${job.company} culture technology`, job.company)
@@ -256,7 +264,16 @@ exports.startInterviewSession = async (req, res, next) => {
       difficulty: 'medium',
       questionCount: 0,
       recommendation: '',
-      completed: false
+      completed: false,
+      answers: [],
+      next_step: null,
+      technicalScore: null,
+      communicationScore: null,
+      overallScore: null,
+      coverage: null,
+      strengths: null,
+      weaknesses: null,
+      feedback: null
     };
 
     // Call FastAPI service
@@ -320,6 +337,12 @@ exports.submitAnswer = async (req, res, next) => {
 
     // Update state with answer
     state.currentAnswer = answer;
+    if (!state.answers) {
+      state.answers = [];
+    }
+    if (state.answers.length < state.askedQuestions.length) {
+      state.answers.push(answer);
+    }
 
     // Call FastAPI service to evaluate and transition
     const aiServiceUrl = process.env.AI_SERVICE_URL;

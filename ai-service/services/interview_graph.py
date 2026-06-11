@@ -4,7 +4,7 @@ from typing import TypedDict, List, Dict, Any, Optional
 from groq import Groq
 from langgraph.graph import StateGraph, START, END
 
-# Define state schema
+# Define state schema matching InterviewState interface
 class InterviewState(TypedDict):
     sessionId: str
     candidateId: str
@@ -17,11 +17,24 @@ class InterviewState(TypedDict):
     askedQuestions: List[str]
     coveredTopics: List[str]
     requiredSkills: List[str]
-    scores: List[Dict[str, float]]
+    scores: List[Dict[str, Any]]
     difficulty: str  # "easy" | "medium" | "hard"
     questionCount: int
     recommendation: Optional[str]
     completed: bool
+    
+    # State routing & historical variables
+    answers: List[str]
+    next_step: Optional[str]
+    
+    # Report evaluation metrics stored in graph
+    technicalScore: Optional[float]
+    communicationScore: Optional[float]
+    overallScore: Optional[float]
+    coverage: Optional[float]
+    strengths: Optional[List[str]]
+    weaknesses: Optional[List[str]]
+    feedback: Optional[str]
 
 # Load Prompt Helper
 def load_prompt_template(filename: str) -> str:
@@ -29,18 +42,53 @@ def load_prompt_template(filename: str) -> str:
     with open(prompt_path, "r", encoding="utf-8") as f:
         return f.read()
 
+# Supervisor Agent Node
+def supervisor_agent_node(state: InterviewState) -> dict:
+    print("🤖 Running Supervisor Agent Node...")
+    
+    asked = state.get("askedQuestions", [])
+    scores = state.get("scores", [])
+    completed = state.get("completed", False)
+    
+    # Routing decisions
+    if completed:
+        next_step = "end_interview"
+    elif not state.get("resumeContext") or not state.get("jobContext"):
+        next_step = "retrieve_context"
+    elif state.get("currentAnswer") and len(scores) < len(asked):
+        # We have an answer but it hasn't been evaluated yet
+        next_step = "evaluate_answer"
+    elif len(asked) >= 5:
+        # 5 rounds finished and evaluated, route to final report generator
+        next_step = "generate_report"
+    else:
+        next_step = "generate_question"
+        
+    print(f"Supervisor decided next step: {next_step}")
+    return {
+        "next_step": next_step
+    }
+
 # Agent 1: Question Generator Node
 def generate_question_node(state: InterviewState) -> dict:
     print("🤖 Running Question Generator Agent...")
     api_key = os.getenv("GROQ_API_KEY")
     model = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
     
-    # Format the prompt
+    # Construct history transcript JSON for the Question Agent
+    asked = state.get("askedQuestions", [])
+    answers = state.get("answers", [])
+    history = []
+    for idx, q in enumerate(asked):
+        ans = answers[idx] if idx < len(answers) else "N/A"
+        history.append({"question": q, "answer": ans})
+        
+    # Format prompt
     template = load_prompt_template("question_prompt.txt")
     prompt = template.replace("{resume_context}", state.get("resumeContext", "N/A")) \
                      .replace("{job_context}", state.get("jobContext", "N/A")) \
                      .replace("{company_context}", state.get("companyContext", "N/A")) \
-                     .replace("{asked_questions}", json.dumps(state.get("askedQuestions", []), indent=2)) \
+                     .replace("{asked_questions}", json.dumps(history, indent=2)) \
                      .replace("{covered_topics}", json.dumps(state.get("coveredTopics", []), indent=2)) \
                      .replace("{difficulty}", state.get("difficulty", "medium"))
     
@@ -57,8 +105,8 @@ def generate_question_node(state: InterviewState) -> dict:
     topic = result.get("topic", "General")
     
     # Update askedQuestions, coveredTopics, currentQuestion and count
-    asked = list(state.get("askedQuestions", []))
-    asked.append(question)
+    asked_list = list(asked)
+    asked_list.append(question)
     
     covered = list(state.get("coveredTopics", []))
     if topic and topic not in covered:
@@ -66,9 +114,10 @@ def generate_question_node(state: InterviewState) -> dict:
         
     return {
         "currentQuestion": question,
-        "askedQuestions": asked,
+        "askedQuestions": asked_list,
         "coveredTopics": covered,
-        "questionCount": state.get("questionCount", 0) + 1
+        "questionCount": state.get("questionCount", 0) + 1,
+        "currentAnswer": "" # Reset currentAnswer for candidate input
     }
 
 # Agent 2: Answer Evaluator Node
@@ -80,6 +129,13 @@ def evaluate_answer_node(state: InterviewState) -> dict:
     question = state.get("currentQuestion", "")
     answer = state.get("currentAnswer", "")
     
+    # Append candidate answer to transcript list
+    answers_list = list(state.get("answers", []))
+    if answer:
+        # Check if we should append to prevent duplicate elements
+        if len(answers_list) < len(state.get("askedQuestions", [])):
+            answers_list.append(answer)
+            
     template = load_prompt_template("eval_prompt.txt")
     prompt = template.replace("{question}", question).replace("{answer}", answer)
     
@@ -93,7 +149,7 @@ def evaluate_answer_node(state: InterviewState) -> dict:
     
     eval_result = json.loads(response.choices[0].message.content)
     
-    # Extract scores and wrap them
+    # Extract scores
     score_entry = {
         "technical": float(eval_result.get("technical", 70)),
         "communication": float(eval_result.get("communication", 70)),
@@ -106,7 +162,8 @@ def evaluate_answer_node(state: InterviewState) -> dict:
     scores.append(score_entry)
     
     return {
-        "scores": scores
+        "scores": scores,
+        "answers": answers_list
     }
 
 # Agent 3: Coverage Agent (Pure Code Node)
@@ -115,18 +172,13 @@ def coverage_node(state: InterviewState) -> dict:
     required = [s.lower() for s in state.get("requiredSkills", [])]
     covered = [t.lower() for t in state.get("coveredTopics", [])]
     
-    # Find matching required skills that have been covered in topics
     matched = [s for s in required if any(s in c or c in s for c in covered)]
-    
-    # Calculate coverage
     coverage_percentage = int((len(matched) / len(required)) * 100) if required else 100
     
     print(f"Coverage: {coverage_percentage}% (Required: {required}, Covered: {covered})")
     
-    # We can use coveredTopics list to dynamically save the list
     return {
-        # Keep list of covered topics as is
-        "coveredTopics": state.get("coveredTopics", [])
+        "coverage": float(coverage_percentage)
     }
 
 # Agent 4: Difficulty Agent Node
@@ -139,7 +191,6 @@ def adjust_difficulty_node(state: InterviewState) -> dict:
     current_difficulty = state.get("difficulty", "medium")
     question_count = state.get("questionCount", 0)
     
-    # Calculate averages
     avg_technical = sum(s.get("technical", 70.0) for s in scores) / len(scores) if scores else 70.0
     avg_depth = sum(s.get("depth", 70.0) for s in scores) / len(scores) if scores else 70.0
     
@@ -160,7 +211,6 @@ def adjust_difficulty_node(state: InterviewState) -> dict:
     result = json.loads(response.choices[0].message.content)
     new_difficulty = result.get("difficulty", current_difficulty).lower()
     
-    # Validation against schema constraint
     if new_difficulty not in ["easy", "medium", "hard"]:
         new_difficulty = current_difficulty
         
@@ -168,29 +218,6 @@ def adjust_difficulty_node(state: InterviewState) -> dict:
     
     return {
         "difficulty": new_difficulty
-    }
-
-# Router Node
-def router(state: InterviewState) -> str:
-    if len(state.get("askedQuestions", [])) == 0:
-        return "retrieve_context"
-    else:
-        return "evaluate_answer"
-
-# Difficulty Checker to loop or terminate
-def check_limit_router(state: InterviewState) -> str:
-    # Terminate after 5 questions
-    if state.get("questionCount", 0) >= 5:
-        return "end_interview"
-    else:
-        return "generate_question"
-
-# End Node
-def end_interview_node(state: InterviewState) -> dict:
-    print("🏁 Ending Interview Session...")
-    return {
-        "completed": True,
-        "currentQuestion": ""
     }
 
 # Retrieve Context Node
@@ -202,62 +229,23 @@ def retrieve_context_node(state: InterviewState) -> dict:
         "companyContext": state.get("companyContext", "")
     }
 
-# Define the StateGraph Workflow
-workflow = StateGraph(InterviewState)
-
-# Add Nodes
-workflow.add_node("retrieve_context", retrieve_context_node)
-workflow.add_node("generate_question", generate_question_node)
-workflow.add_node("evaluate_answer", evaluate_answer_node)
-workflow.add_node("update_coverage", coverage_node)
-workflow.add_node("adjust_difficulty", adjust_difficulty_node)
-workflow.add_node("end_interview", end_interview_node)
-
-# Add Edges with routing
-workflow.set_conditional_entry_point(
-    router,
-    {
-        "retrieve_context": "retrieve_context",
-        "evaluate_answer": "evaluate_answer"
-    }
-)
-
-workflow.add_edge("retrieve_context", "generate_question")
-workflow.add_edge("generate_question", END)
-
-workflow.add_edge("evaluate_answer", "update_coverage")
-workflow.add_edge("update_coverage", "adjust_difficulty")
-
-workflow.add_conditional_edges(
-    "adjust_difficulty",
-    check_limit_router,
-    {
-        "generate_question": "generate_question",
-        "end_interview": "end_interview"
-    }
-)
-workflow.add_edge("end_interview", END)
-
-# Compile Graph
-interview_graph = workflow.compile()
-
-# Node 5/Agent 5: Interview Report Generator Node
-def generate_interview_report(state: InterviewState) -> dict:
-    print("🤖 Running Report Generator Agent...")
+# Agent 5 / ReportGeneratorNode
+def generate_report_node(state: InterviewState) -> dict:
+    print("🤖 Running Report Generator Node...")
     api_key = os.getenv("GROQ_API_KEY")
     model = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
     
-    # Build transcript
-    transcript = []
     asked = state.get("askedQuestions", [])
-    answers = state.get("currentAnswer", "") # Note: final answer is evaluated, but transcript has historical ones.
+    answers = state.get("answers", [])
     scores = state.get("scores", [])
     
     transcript_text = ""
     for idx, question in enumerate(asked):
+        answer = answers[idx] if idx < len(answers) else "N/A"
         score_info = scores[idx] if idx < len(scores) else {}
         transcript_text += f"\nRound {idx + 1}:\n"
         transcript_text += f"Q: {question}\n"
+        transcript_text += f"A: {answer}\n"
         transcript_text += f"Scores: Technical={score_info.get('technical')}, Depth={score_info.get('depth')}, Communication={score_info.get('communication')}\n"
         transcript_text += f"Feedback: {', '.join(score_info.get('feedback', []))}\n"
         
@@ -275,4 +263,76 @@ def generate_interview_report(state: InterviewState) -> dict:
         temperature=0.2
     )
     
-    return json.loads(response.choices[0].message.content)
+    report_json = json.loads(response.choices[0].message.content)
+    
+    return {
+        "technicalScore": float(report_json.get("technicalScore", 70)),
+        "communicationScore": float(report_json.get("communicationScore", 70)),
+        "overallScore": float(report_json.get("overallScore", 70)),
+        "coverage": float(report_json.get("coverage", 100)),
+        "strengths": report_json.get("strengths", []),
+        "weaknesses": report_json.get("weaknesses", []),
+        "recommendation": report_json.get("recommendation", "HOLD"),
+        "feedback": report_json.get("feedback", "")
+    }
+
+# End Node
+def end_interview_node(state: InterviewState) -> dict:
+    print("🏁 Ending Interview Session...")
+    return {
+        "completed": True,
+        "currentQuestion": ""
+    }
+
+# Define the StateGraph Workflow
+workflow = StateGraph(InterviewState)
+
+# Add Nodes
+workflow.add_node("supervisor", supervisor_agent_node)
+workflow.add_node("retrieve_context", retrieve_context_node)
+workflow.add_node("generate_question", generate_question_node)
+workflow.add_node("evaluate_answer", evaluate_answer_node)
+workflow.add_node("update_coverage", coverage_node)
+workflow.add_node("adjust_difficulty", adjust_difficulty_node)
+workflow.add_node("generate_report", generate_report_node)
+workflow.add_node("end_interview", end_interview_node)
+
+# Set Entry Point
+workflow.set_entry_point("supervisor")
+
+# Set Conditional Edges from Supervisor
+def route_from_supervisor(state: InterviewState) -> str:
+    return state.get("next_step", "generate_question")
+
+workflow.add_conditional_edges(
+    "supervisor",
+    route_from_supervisor,
+    {
+        "retrieve_context": "retrieve_context",
+        "evaluate_answer": "evaluate_answer",
+        "generate_question": "generate_question",
+        "generate_report": "generate_report",
+        "end_interview": "end_interview"
+    }
+)
+
+# Standard transitions
+workflow.add_edge("retrieve_context", "supervisor")
+workflow.add_edge("generate_question", END)
+
+workflow.add_edge("evaluate_answer", "update_coverage")
+workflow.add_edge("update_coverage", "adjust_difficulty")
+workflow.add_edge("adjust_difficulty", "supervisor")
+
+workflow.add_edge("generate_report", "end_interview")
+workflow.add_edge("end_interview", END)
+
+# Compile Graph
+interview_graph = workflow.compile()
+
+# Compatibility helper function
+def generate_interview_report(state: dict) -> dict:
+    """
+    Direct functional execution of the Report Generator Node logic.
+    """
+    return generate_report_node(state)

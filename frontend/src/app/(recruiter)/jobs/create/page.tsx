@@ -6,6 +6,7 @@ import { api } from "../../../../lib/api";
 
 export default function CreateJob() {
   const [title, setTitle] = useState("");
+  const [company, setCompany] = useState("");
   const [department, setDepartment] = useState("");
   const [location, setLocation] = useState("");
   const [salaryRange, setSalaryRange] = useState("");
@@ -51,10 +52,14 @@ export default function CreateJob() {
       })) || [];
 
       await api.jobs.create({
+        company,
         title,
-        description: jdText,
+        department,
         location,
         salaryRange,
+        vacancies: parseInt(vacancies) || 1,
+        experience,
+        description: jdText,
         skills: skillsPayload
       });
 
@@ -80,6 +85,20 @@ export default function CreateJob() {
       <div className={styles.grid}>
         <div className={styles.formSection}>
           <form className={styles.form} onSubmit={handleSubmit}>
+            <div className={styles.row}>
+              <div className={styles.inputGroup}>
+                <label>Company Name</label>
+                <input 
+                  type="text" 
+                  placeholder="e.g. Google" 
+                  required 
+                  value={company}
+                  onChange={(e) => setCompany(e.target.value)}
+                  disabled={loading}
+                />
+              </div>
+            </div>
+
             <div className={styles.row}>
               <div className={styles.inputGroup}>
                 <label>Job Title</label>

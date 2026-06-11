@@ -40,9 +40,8 @@ exports.createJob = async (req, res, next) => {
       jobIntelligence: jobIntelligence || null
     });
 
-    // Automatically trigger the RAG ingestion pipeline in the background
-    jobProcessor.processJob(job.id)
-      .catch(err => console.error('Job ingestion background error:', err));
+    // Automatically trigger and await the RAG ingestion pipeline
+    await jobProcessor.processJob(job.id);
 
     return res.status(201).json(job);
   } catch (err) {
@@ -279,9 +278,8 @@ exports.ingestJob = async (req, res, next) => {
       return res.status(404).json({ message: 'Job not found' });
     }
 
-    // Trigger ingestion process in the background
-    jobProcessor.processJob(job.id)
-      .catch(err => console.error('Manual ingestion background error:', err));
+    // Trigger and await the ingestion process
+    await jobProcessor.processJob(job.id);
 
     return res.status(200).json({
       message: 'Ingestion pipeline triggered successfully',

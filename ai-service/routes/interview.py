@@ -22,6 +22,19 @@ class InterviewStateModel(BaseModel):
     questionCount: int
     recommendation: Optional[str] = None
     completed: bool = False
+    
+    # State routing & historical variables
+    answers: List[str] = []
+    next_step: Optional[str] = None
+    
+    # Report evaluation metrics stored in graph
+    technicalScore: Optional[float] = None
+    communicationScore: Optional[float] = None
+    overallScore: Optional[float] = None
+    coverage: Optional[float] = None
+    strengths: Optional[List[str]] = None
+    weaknesses: Optional[List[str]] = None
+    feedback: Optional[str] = None
 
 @router.post("/interview/next")
 async def interview_next(state: InterviewStateModel):
