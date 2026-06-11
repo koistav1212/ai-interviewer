@@ -9,6 +9,7 @@ load_dotenv()
 # Import the routers
 from routes.parse_jd import router as parse_jd_router
 from routes.parse_resume import router as parse_resume_router
+from routes.interview import router as interview_router
 
 app = FastAPI(
     title="TalentIQ AI Service",
@@ -28,6 +29,7 @@ app.add_middleware(
 # Include the routes
 app.include_router(parse_jd_router)
 app.include_router(parse_resume_router)
+app.include_router(interview_router)
 
 @app.get("/health")
 def health_check():

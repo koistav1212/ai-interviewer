@@ -38,10 +38,15 @@ export default function AIInterviewRoom() {
         }
         
         setInterview(currentInterview);
-        const durationValue = currentInterview?.duration || 15;
+        
+        // Start interview session dynamically via LangGraph RetrieveContextNode & QuestionNode
+        const startRes = await api.interviews.startSession(currentInterview.id);
         setMessages([
-          { role: "ai", content: `Hello! I am the TalentIQ AI Interviewer. We have scheduled a ${durationValue} minutes interview today. Let's start. Can you tell me about your experience with Data Analysis?` }
+          { role: "ai", content: startRes.question || "Welcome! Let's start the interview. Can you introduce yourself?" }
         ]);
+        if (startRes.completed) {
+          setCompleted(true);
+        }
       } catch (err) {
         console.error("Failed to load interview context:", err);
       } finally {
@@ -54,29 +59,33 @@ export default function AIInterviewRoom() {
     }
   }, [applicationId]);
 
-  const handleSend = (e: React.FormEvent) => {
+  const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!input.trim() || completed) return;
+    if (!input.trim() || completed || submitting) return;
 
+    const userAns = input;
     // Add user message
-    const newMessages = [...messages, { role: "user", content: input }];
+    const newMessages = [...messages, { role: "user", content: userAns }];
     setMessages(newMessages);
     setInput("");
+    setSubmitting(true);
 
-    const currentStep = step + 1;
-    setStep(currentStep);
-
-    // Simulate AI follow-up based on steps
-    setTimeout(() => {
-      if (currentStep === 1) {
-        setMessages([...newMessages, { role: "ai", content: "Great. Can you describe how you handle cleanups and validation on messy or duplicate datasets?" }]);
-      } else if (currentStep === 2) {
-        setMessages([...newMessages, { role: "ai", content: "Excellent. How do you lead or collaborate in team settings when there is technical friction?" }]);
-      } else {
+    try {
+      // Send answer and obtain next question using EvaluationNode + CoverageNode + DifficultyNode + QuestionNode loop
+      const res = await api.interviews.submitAnswer(interview.id, userAns);
+      
+      if (res.completed) {
         setMessages([...newMessages, { role: "ai", content: "Thank you! That concludes our interview questions today. Please click the button below to submit your interview and receive your final AI scoring assessment." }]);
         setCompleted(true);
+      } else {
+        setMessages([...newMessages, { role: "ai", content: res.question }]);
       }
-    }, 1500);
+    } catch (err: any) {
+      console.error("Failed to submit answer:", err);
+      setMessages([...newMessages, { role: "ai", content: "Sorry, I encountered an issue processing that answer. Could you please repeat or elaborate?" }]);
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const handleFinishAndScore = async () => {
@@ -84,34 +93,10 @@ export default function AIInterviewRoom() {
     setSubmitting(true);
 
     try {
-      // Calculate scores dynamically based on length of response and keywords
-      const userAnswers = messages.filter(m => m.role === 'user').map(m => m.content).join(" ");
-      const length = userAnswers.length;
+      // Finalize the interview, which triggers the ReportGeneratorNode on FastAPI
+      await api.interviews.finalizeSession(interview.id);
 
-      // Base scores
-      let technicalScore = 7.5;
-      let communicationScore = 8.0;
-      let leadershipScore = 7.0;
-      let businessAcumenScore = 7.5;
-
-      // Increment scores based on depth of response
-      if (length > 150) {
-        technicalScore = Math.min(10, technicalScore + 1.0);
-        communicationScore = Math.min(10, communicationScore + 1.0);
-      }
-      if (userAnswers.toLowerCase().includes("lead") || userAnswers.toLowerCase().includes("collaborate")) {
-        leadershipScore = Math.min(10, leadershipScore + 1.5);
-      }
-
-      await api.interviews.submitScore(interview.id, {
-        technicalScore,
-        communicationScore,
-        leadershipScore,
-        businessAcumenScore,
-        feedback: "Candidate demonstrated solid analytical skills with structured communication patterns during the conversation."
-      });
-
-      alert("Interview successfully saved! Your scores and matching matrix have been registered.");
+      alert("🎉 Interview successfully saved! Your final AI recruiter scores and evaluation report have been compiled.");
       window.location.href = "/applications";
     } catch (err) {
       alert("Failed to submit score: " + (err as Error).message);

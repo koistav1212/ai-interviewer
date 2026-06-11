@@ -5,7 +5,8 @@ const InterviewSchema = new mongoose.Schema({
   scheduledTime: { type: Date, required: true },
   meetingLink: { type: String, default: null },
   duration: { type: Number, default: null },
-  status: { type: String, enum: ['SCHEDULED', 'COMPLETED', 'CANCELLED'], default: 'SCHEDULED' }
+  status: { type: String, enum: ['SCHEDULED', 'COMPLETED', 'CANCELLED'], default: 'SCHEDULED' },
+  interviewState: { type: mongoose.Schema.Types.Mixed, default: null }
 }, {
   timestamps: true,
   toJSON: {

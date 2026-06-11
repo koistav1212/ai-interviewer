@@ -5,3 +5,5 @@ pymupdf==1.24.5
 groq==0.9.0
 python-dotenv==1.0.1
 httpx<0.28.0
+langgraph==1.2.4
+langchain-core==1.4.6

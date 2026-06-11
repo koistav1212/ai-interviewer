@@ -122,6 +122,12 @@ export const api = {
       apiFetch(`/interviews/${id}/start`, { method: 'POST', body: JSON.stringify(data) }),
     submitScore: (id: string, data: { technicalScore: number; communicationScore: number; leadershipScore: number; businessAcumenScore: number; feedback?: string }) => 
       apiFetch(`/interviews/${id}/score`, { method: 'POST', body: JSON.stringify(data) }),
+    startSession: (id: string) => 
+      apiFetch(`/interviews/${id}/start-session`, { method: 'POST' }),
+    submitAnswer: (id: string, answer: string) => 
+      apiFetch(`/interviews/${id}/answer`, { method: 'POST', body: JSON.stringify({ answer }) }),
+    finalizeSession: (id: string) => 
+      apiFetch(`/interviews/${id}/finalize`, { method: 'POST' }),
   },
   reports: {
     getCandidateReport: (applicationId: string) => apiFetch(`/reports/candidate/${applicationId}`),
