@@ -1,4 +1,4 @@
-const { Job } = require('../models');
+const { Job, CompanyIntelligence } = require('../models');
 const { qdrant } = require('../config/qdrant');
 const { getEmbedding } = require('./embeddingService');
 const crypto = require('crypto');
@@ -312,6 +312,77 @@ async function processJob(jobId) {
   await storeVectors(vectors);
 
   console.log("Job knowledge indexed");
+
+  // 7. Call AI service to extract company intelligence and save to MongoDB
+  if (job.company && companyDocs.length > 0) {
+    try {
+      const searchResultsText = companyDocs
+        .map(doc => `Category: ${doc.source}\n\n${doc.text}`)
+        .join('\n\n---\n\n');
+
+      // Extract unique URL sources
+      const urlRegex = /(https?:\/\/[^\s]+)/g;
+      const allUrls = [];
+      companyDocs.forEach(doc => {
+        if (doc.text) {
+          const urls = doc.text.match(urlRegex) || [];
+          allUrls.push(...urls.map(url => url.replace(/[.,;:()]+$/, '')));
+        }
+      });
+      const sources = [...new Set(allUrls)];
+
+      console.log(`🤖 Requesting company intelligence extraction from AI Service for "${job.company}"...`);
+      const aiServiceUrl = process.env.AI_SERVICE_URL || 'http://localhost:8002';
+      const response = await fetch(`${aiServiceUrl}/analyze-company`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          company_name: job.company,
+          job_title: job.title,
+          search_results: searchResultsText
+        })
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        console.log('✅ Company intelligence successfully extracted from AI service');
+
+        // Combine engineeringCulture and hiringPhilosophy into culture
+        const cultureParts = [];
+        if (result.engineeringCulture) {
+          cultureParts.push(`Engineering Culture:\n${result.engineeringCulture}`);
+        }
+        if (result.hiringPhilosophy) {
+          cultureParts.push(`Hiring Philosophy:\n${result.hiringPhilosophy}`);
+        }
+        const combinedCulture = cultureParts.join('\n\n');
+
+        const companyIntelligenceData = {
+          company: job.company,
+          mission: result.mission || '',
+          products: result.products || [],
+          culture: combinedCulture,
+          techStack: result.techStack || [],
+          recentNews: result.recentInitiatives || [],
+          sources: sources
+        };
+
+        await CompanyIntelligence.findOneAndUpdate(
+          { company: job.company },
+          companyIntelligenceData,
+          { upsert: true, new: true }
+        );
+        console.log(`💾 Saved/updated company intelligence for "${job.company}" in MongoDB`);
+      } else {
+        const errorText = await response.text();
+        console.warn(`⚠️ AI Service /analyze-company returned error: ${response.status} - ${errorText}`);
+      }
+    } catch (aiErr) {
+      console.error('❌ Failed to process company intelligence via AI service:', aiErr.message);
+    }
+  }
 }
 
 module.exports = {
