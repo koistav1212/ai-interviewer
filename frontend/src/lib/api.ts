@@ -125,8 +125,15 @@ export const api = {
       apiFetch(`/interviews/${id}/score`, { method: 'POST', body: JSON.stringify(data) }),
     startSession: (id: string) => 
       apiFetch(`/interviews/${id}/start-session`, { method: 'POST' }),
-    submitAnswer: (id: string, answer: string) => 
-      apiFetch(`/interviews/${id}/answer`, { method: 'POST', body: JSON.stringify({ answer }) }),
+    submitAnswer: (interviewId: string, answerText: string, questionId?: string) => 
+      apiFetch(`/interviews/${interviewId}/answer`, { 
+        method: 'POST', 
+        body: JSON.stringify({ 
+          interviewId,
+          questionId: questionId || "q_current", 
+          answerText 
+        }) 
+      }),
     finalizeSession: (id: string) => 
       apiFetch(`/interviews/${id}/finalize`, { method: 'POST' }),
   },

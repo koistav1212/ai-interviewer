@@ -1,6 +1,6 @@
 .container {
   display: grid;
-  grid-template-columns: 25% 50% 25%;
+  grid-template-columns: 75% 25%;
   gap: 1.5rem;
   height: calc(100vh - 7rem);
   background: var(--color-bg);
@@ -356,4 +356,366 @@
 
 .analysisValue.warning {
   color: #F59E0B;
+}
+
+/* Loading Container */
+.loadingContainer {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  min-height: 60vh;
+  gap: 1rem;
+  color: var(--color-text-secondary);
+}
+
+.spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid var(--color-border);
+  border-top-color: var(--color-primary-accent);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Pre-interview setup screen */
+.setupScreen {
+  padding: 2.5rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  height: 100%;
+  overflow-y: auto;
+  color: var(--color-text-primary);
+}
+
+.setupScreen h3 {
+  font-size: 1.5rem;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+}
+
+.setupSubtitle {
+  font-size: 0.9rem;
+  color: var(--color-text-secondary);
+  text-align: center;
+  margin-bottom: 2rem;
+  max-width: 500px;
+}
+
+.setupCard {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 16px;
+  padding: 1.5rem;
+  width: 100%;
+  max-width: 480px;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.setupRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.95rem;
+}
+
+.successText {
+  color: #10B981;
+  font-weight: 500;
+}
+
+.errorText {
+  color: #ef4444;
+  font-weight: 500;
+}
+
+.warningAlert {
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  color: #f87171;
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  font-size: 0.85rem;
+  line-height: 1.4;
+}
+
+.divider {
+  border: 0;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.08);
+  margin: 0.5rem 0;
+}
+
+.settingsGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.settingsGroup label {
+  font-size: 0.85rem;
+  color: var(--color-text-secondary);
+  font-weight: 500;
+}
+
+.selectInput {
+  background: rgba(4, 7, 13, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  padding: 0.6rem 0.8rem;
+  color: var(--color-text-primary);
+  font-size: 0.9rem;
+  outline: none;
+  cursor: pointer;
+  width: 100%;
+}
+
+.selectInput:focus {
+  border-color: var(--color-primary-accent);
+}
+
+.rangeInput {
+  width: 100%;
+  accent-color: var(--color-primary-accent);
+  cursor: pointer;
+}
+
+/* Progress bar for model downloading */
+.modelProgressContainer {
+  margin-top: 1.5rem;
+  width: 100%;
+  max-width: 480px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  align-items: center;
+  font-size: 0.85rem;
+  color: var(--color-text-secondary);
+}
+
+.progressBarBg {
+  width: 100%;
+  height: 8px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 9999px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.progressBarFill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--color-primary-accent), var(--color-secondary-accent));
+  border-radius: 9999px;
+  transition: width 0.3s ease;
+}
+
+/* Settings Toggle and Overlay */
+.settingsToggleBtn {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  width: 34px;
+  height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 1rem;
+  color: var(--color-text-primary);
+  transition: background 0.2s ease;
+}
+
+.settingsToggleBtn:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.settingsOverlay {
+  position: absolute;
+  top: 4.5rem;
+  right: 1.5rem;
+  z-index: 100;
+  width: 280px;
+  animation: fadeIn 0.2s ease;
+}
+
+.settingsOverlayCard {
+  background: rgba(11, 14, 24, 0.95);
+  backdrop-filter: blur(25px);
+  -webkit-backdrop-filter: blur(25px);
+  border: 1px solid rgba(216, 231, 242, 0.12);
+  border-radius: 16px;
+  padding: 1.25rem;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.overlayHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  padding-bottom: 0.5rem;
+}
+
+.overlayHeader h4 {
+  font-size: 0.95rem;
+  font-weight: 600;
+  margin: 0;
+  color: var(--color-text-primary);
+}
+
+.closeOverlayBtn {
+  background: transparent;
+  border: none;
+  color: var(--color-text-secondary);
+  font-size: 1.25rem;
+  cursor: pointer;
+}
+
+.closeOverlayBtn:hover {
+  color: var(--color-text-primary);
+}
+
+/* State Badge styles */
+.stateBadge {
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 0.25rem 0.6rem;
+  border-radius: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.speakingState {
+  background: rgba(59, 130, 246, 0.1);
+  border: 1px solid rgba(59, 130, 246, 0.2);
+  color: #60a5fa;
+}
+
+.listeningState {
+  background: rgba(16, 185, 129, 0.1);
+  border: 1px solid rgba(16, 185, 129, 0.2);
+  color: #34d399;
+}
+
+.evaluatingState {
+  background: rgba(245, 158, 11, 0.1);
+  border: 1px solid rgba(245, 158, 11, 0.2);
+  color: #fbbf24;
+}
+
+.generatingState {
+  background: rgba(139, 92, 246, 0.1);
+  border: 1px solid rgba(139, 92, 246, 0.2);
+  color: #a78bfa;
+}
+
+/* Avatar speaking pulse */
+.avatarSpeaking {
+  animation: speakingPulse 1.5s infinite alternate !important;
+  box-shadow: 0 0 35px rgba(91, 94, 248, 0.9) !important;
+}
+
+@keyframes speakingPulse {
+  0% { transform: translateY(-5px) scale(0.95); box-shadow: 0 0 20px rgba(91, 94, 248, 0.5); }
+  100% { transform: translateY(5px) scale(1.1); box-shadow: 0 0 45px rgba(91, 94, 248, 1.0); }
+}
+
+/* Live transcript box inside chat */
+.liveTranscriptBox {
+  margin-top: 0.75rem;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 10px;
+  padding: 0.75rem 1rem;
+}
+
+.liveTranscriptHeader {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.75rem;
+  color: var(--color-primary-glow);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 0.4rem;
+}
+
+.pulseLiveDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--color-primary-glow);
+  animation: livePulseDot 1s infinite alternate;
+}
+
+@keyframes livePulseDot {
+  0% { opacity: 0.3; }
+  100% { opacity: 1; }
+}
+
+.liveTranscriptText {
+  font-size: 0.9rem;
+  color: var(--color-text-primary);
+  margin: 0 0 0.5rem 0;
+  font-style: italic;
+  line-height: 1.4;
+}
+
+.confidenceText {
+  font-size: 0.7rem;
+  color: var(--color-text-secondary);
+}
+
+.confidenceText strong {
+  color: #34d399;
+}
+
+/* Hands-free indicator */
+.handsFreeIndicator {
+  padding: 1rem 1.5rem;
+  text-align: center;
+  font-size: 0.8rem;
+  color: var(--color-text-secondary);
+  border-top: 1px solid rgba(216, 231, 242, 0.07);
+  background: rgba(11, 14, 24, 0.8);
+}
+
+/* Transcript preview and submit row */
+.transcriptSubmitRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.5rem;
+  width: 100%;
+}
+
+.transcriptPreview {
+  flex: 1;
+  text-align: left;
+  font-size: 0.9rem;
+  color: var(--color-text-primary);
+  background: rgba(4, 7, 13, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+  padding: 0.5rem 1rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-5px); }
+  to { opacity: 1; transform: translateY(0); }
 }

@@ -311,14 +311,19 @@ exports.startInterviewSession = async (req, res, next) => {
 
 exports.submitAnswer = async (req, res, next) => {
   try {
-    const { id } = req.params;
-    const { answer } = req.body;
+    const interviewId = req.body.interviewId || req.params.id;
+    const answer = req.body.answerText || req.body.answer;
+    const questionId = req.body.questionId;
     
+    if (!interviewId) {
+      return res.status(400).json({ message: 'Interview ID is required' });
+    }
+
     if (!answer) {
       return res.status(400).json({ message: 'Answer is required' });
     }
 
-    const interview = await Interview.findById(id);
+    const interview = await Interview.findById(interviewId);
     if (!interview) {
       return res.status(404).json({ message: 'Interview not found' });
     }

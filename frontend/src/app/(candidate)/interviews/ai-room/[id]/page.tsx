@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef, useMemo } from "react";
 import styles from "./ai-room.module.css";
 import { useParams } from "next/navigation";
 import { api } from "../../../../../lib/api";
+import { VoiceEngine, VoiceSettings } from "../../../../../lib/voiceEngine";
 
 export default function AIInterviewRoom() {
   const params = useParams();
@@ -12,35 +13,186 @@ export default function AIInterviewRoom() {
   const [interview, setInterview] = useState<any>(null);
   const [profile, setProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [messages, setMessages] = useState<{ role: string, content: string }[]>([
-    { role: "ai", content: "Hello! I am the TalentIQ AI Interviewer. Let's start. Can you tell me about your experience with Data Analysis?" }
-  ]);
-  const [input, setInput] = useState("");
-  const [isRecording, setIsRecording] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
+  const [messages, setMessages] = useState<{ role: string, content: string }[]>([]);
   const [completed, setCompleted] = useState(false);
   const [timerSeconds, setTimerSeconds] = useState(0);
 
+  // Voice system states
+  const [setupComplete, setSetupComplete] = useState(false);
+  const [micPermission, setMicPermission] = useState<"prompt" | "granted" | "denied">("prompt");
+  const [modelLoading, setModelLoading] = useState(false);
+  const [modelLoadingProgress, setModelLoadingProgress] = useState(0);
+  const [modelLoadingName, setModelLoadingName] = useState("");
+  const [interviewState, setInterviewState] = useState<"speaking" | "listening" | "evaluating" | "generating_next_question">("speaking");
+  const [liveTranscript, setLiveTranscript] = useState("");
+  const [confidence, setConfidence] = useState(0);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+
+  // Settings state
+  const [voiceSettings, setVoiceSettings] = useState<VoiceSettings>({
+    ttsEngine: "native",
+    voiceId: "",
+    speed: 1.0
+  });
+
+  const [nativeVoices, setNativeVoices] = useState<SpeechSynthesisVoice[]>([]);
+  
+  // Voice engine singleton ref
+  const engine = useRef<VoiceEngine | null>(null);
+  const liveTranscriptRef = useRef("");
+
+  useEffect(() => {
+    liveTranscriptRef.current = liveTranscript;
+  }, [liveTranscript]);
+
+  // Dynamic Live AI Analysis calculation before submission
+  const liveAnalysis = useMemo(() => {
+    if (!liveTranscript.trim()) {
+      return {
+        confidence: "94%",
+        communication: "Excellent",
+        technicalDepth: "Strong",
+        leadership: "High Potential",
+        sentiment: "Positive (92%)",
+        speed: "135 WPM",
+        fillerWords: "3 detected",
+        riskFlags: "None"
+      };
+    }
+
+    const words = liveTranscript.toLowerCase().split(/\s+/).filter(Boolean);
+    const wordCount = words.length;
+
+    // 1. Confidence
+    const confScore = confidence > 0 ? `${confidence}%` : "95%";
+
+    // 2. Filler words
+    const fillersList = ["um", "uh", "like", "so", "actually", "basically", "youknow"];
+    const fillerCount = words.filter(w => fillersList.includes(w)).length;
+
+    // 3. Speaking Speed estimate
+    let speedStr = "135 WPM";
+    const elapsedSec = timerSeconds % 60;
+    if (elapsedSec > 2 && wordCount > 2) {
+      const wpm = Math.round((wordCount / elapsedSec) * 60);
+      speedStr = `${wpm} WPM`;
+    }
+
+    // 4. Sentiment analysis
+    const posWords = ["good", "great", "experience", "success", "build", "create", "positive", "strong", "effective", "help", "learn", "solve", "easy", "perfect", "optimize", "deliver", "automate", "developer"];
+    const negWords = ["bad", "fail", "error", "problem", "difficult", "hard", "wrong", "cannot", "issue", "poor"];
+    const posCount = words.filter(w => posWords.includes(w)).length;
+    const negCount = words.filter(w => negWords.includes(w)).length;
+    let sentimentStr = "Positive (92%)";
+    if (posCount || negCount) {
+      const ratio = posCount / (posCount + negCount || 1);
+      const pct = Math.round(70 + ratio * 28);
+      sentimentStr = ratio >= 0.5 ? `Positive (${pct}%)` : `Mixed (${pct}%)`;
+    }
+
+    // 5. Technical Depth
+    const techWords = ["zoho", "creator", "application", "database", "api", "react", "node", "python", "sql", "integration", "code", "automate", "process", "stack", "cloud", "deployment"];
+    const techCount = words.filter(w => techWords.includes(w)).length;
+    const techStr = techCount > 2 ? "Strong" : techCount > 0 ? "Medium" : "Developing";
+
+    // 6. Leadership
+    const leadWords = ["team", "lead", "manage", "project", "deliver", "responsibility", "coordinate", "owner", "collaboration", "guidance", "direction"];
+    const leadCount = words.filter(w => leadWords.includes(w)).length;
+    const leadStr = leadCount > 1 ? "High Potential" : leadCount > 0 ? "Moderate" : "Developing";
+
+    // 7. Communication
+    let commStr = "Excellent";
+    if (fillerCount > 5) commStr = "Needs Improvement";
+    else if (fillerCount > 2) commStr = "Good";
+
+    return {
+      confidence: confScore,
+      communication: commStr,
+      technicalDepth: techStr,
+      leadership: leadStr,
+      sentiment: sentimentStr,
+      speed: speedStr,
+      fillerWords: `${fillerCount} detected`,
+      riskFlags: "None"
+    };
+  }, [liveTranscript, confidence, timerSeconds]);
+
+  // Initialize VoiceEngine
+  useEffect(() => {
+    engine.current = new VoiceEngine();
+    
+    if (engine.current) {
+      engine.current.onVoskProgress = (p) => {
+        setModelLoadingProgress(p);
+      };
+      engine.current.onKokoroProgress = (p) => {
+        if (p === -1) {
+          alert("Kokoro model failed to load. Falling back to native browser TTS.");
+          setModelLoading(false);
+        } else {
+          setModelLoadingProgress(p);
+        }
+      };
+    }
+  }, []);
+
   // Timer simulation
   useEffect(() => {
-    if (completed || loading) return;
+    if (completed || loading || !setupComplete) return;
     const interval = setInterval(() => {
       setTimerSeconds(prev => prev + 1);
     }, 1000);
     return () => clearInterval(interval);
-  }, [completed, loading]);
+  }, [completed, loading, setupComplete]);
 
-  const formatTime = (totalSec: number) => {
-    const mins = Math.floor(totalSec / 60);
-    const secs = totalSec % 60;
-    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-  };
-
+  // Load native voices for selector
   useEffect(() => {
-    const fetchOrCreateInterview = async () => {
+    if (typeof window === 'undefined') return;
+    const loadVoices = () => {
+      const voices = window.speechSynthesis.getVoices();
+      setNativeVoices(voices);
+      
+      const defaultIN = voices.find(v => 
+        v.lang === 'en-IN' || 
+        v.lang.includes('en_IN') || 
+        v.name.toLowerCase().includes('india') || 
+        v.name.toLowerCase().includes('indian')
+      );
+      if (defaultIN && !voiceSettings.voiceId) {
+        setVoiceSettings(prev => ({ ...prev, voiceId: defaultIN.name }));
+      }
+    };
+    
+    loadVoices();
+    window.speechSynthesis.onvoiceschanged = loadVoices;
+  }, [voiceSettings.voiceId]);
+
+  // Request mic permission on render to pre-check
+  useEffect(() => {
+    const checkPermission = async () => {
+      try {
+        const result = await navigator.permissions.query({ name: 'microphone' as any });
+        if (result.state === 'granted') {
+          setMicPermission('granted');
+        } else if (result.state === 'denied') {
+          setMicPermission('denied');
+        }
+        result.onchange = () => {
+          if (result.state === 'granted') setMicPermission('granted');
+          if (result.state === 'denied') setMicPermission('denied');
+        };
+      } catch (err) {
+        // Fallback for browsers that don't support query permission
+      }
+    };
+    checkPermission();
+  }, []);
+
+  // Fetch Interview Context on mount
+  useEffect(() => {
+    const fetchInterview = async () => {
       try {
         setLoading(true);
-        // Load MongoDB candidate profile
         try {
           const profileData = await api.candidate.getProfile();
           if (profileData) {
@@ -50,11 +202,9 @@ export default function AIInterviewRoom() {
           console.log("Candidate profile details not found or unauthorized:", pe);
         }
 
-        // Find existing scheduled interview for this application
         const list = await api.interviews.getCandidate();
         let currentInterview = list.find((i: any) => i.applicationId === applicationId);
         
-        // If no interview is scheduled, create one dynamically for the MVP
         if (!currentInterview) {
           currentInterview = await api.interviews.create({
             applicationId,
@@ -64,15 +214,6 @@ export default function AIInterviewRoom() {
         }
         
         setInterview(currentInterview);
-        
-        // Start langgraph interview session
-        const startRes = await api.interviews.startSession(currentInterview.id);
-        setMessages([
-          { role: "ai", content: startRes.question || "Welcome! Let's start the interview. Can you introduce yourself?" }
-        ]);
-        if (startRes.completed) {
-          setCompleted(true);
-        }
       } catch (err) {
         console.error("Failed to load interview context:", err);
       } finally {
@@ -81,216 +222,473 @@ export default function AIInterviewRoom() {
     };
 
     if (applicationId) {
-      fetchOrCreateInterview();
+      fetchInterview();
     }
   }, [applicationId]);
 
-  const handleSend = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!input.trim() || completed || submitting) return;
+  const handleRequestPermission = async () => {
+    if (!engine.current) return;
+    const granted = await engine.current.requestMicPermission();
+    if (granted) {
+      setMicPermission("granted");
+    } else {
+      setMicPermission("denied");
+    }
+  };
 
-    const userAns = input;
-    // Add user message
-    const newMessages = [...messages, { role: "user", content: userAns }];
-    setMessages(newMessages);
-    setInput("");
-    setSubmitting(true);
+  const startInterviewSession = async () => {
+    if (micPermission !== "granted") {
+      alert("Microphone permission is required to start the voice interview.");
+      return;
+    }
 
     try {
-      // Send answer and obtain next question fromLangGraph evaluation loop
-      const res = await api.interviews.submitAnswer(interview.id, userAns);
+      setModelLoading(true);
       
-      if (res.completed) {
-        setMessages([...newMessages, { role: "ai", content: "Thank you! That concludes our interview questions today. Please click the button below to submit your interview and receive your final AI scoring assessment." }]);
+      setModelLoadingName("Vosk Speech Recognition Engine");
+      if (engine.current) {
+        await engine.current.loadVoskModel();
+      }
+
+      if (voiceSettings.ttsEngine === "kokoro") {
+        setModelLoadingName("Kokoro Local TTS Model (~80MB)");
+        if (engine.current) {
+          await engine.current.loadKokoroModel();
+        }
+      }
+
+      setModelLoading(false);
+      setSetupComplete(true);
+
+      const startRes = await api.interviews.startSession(interview.id);
+      const firstQuestion = startRes.question || "Welcome! Let's start the interview. Can you introduce yourself?";
+      
+      setMessages([
+        { role: "ai", content: firstQuestion }
+      ]);
+
+      if (startRes.completed) {
         setCompleted(true);
       } else {
+        speakQuestion(firstQuestion);
+      }
+    } catch (err) {
+      console.error("Setup failed:", err);
+      alert("Failed to initialize offline speech models. Running with native browser fallbacks.");
+      setModelLoading(false);
+      setSetupComplete(true);
+    }
+  };
+
+  const speakQuestion = async (text: string) => {
+    if (!engine.current) return;
+    setInterviewState("speaking");
+    setLiveTranscript("");
+    
+    await engine.current.speak(
+      text,
+      voiceSettings,
+      () => {},
+      () => {
+        startListeningLoop();
+      }
+    );
+  };
+
+  const startListeningLoop = async () => {
+    if (!engine.current || completed) return;
+    setInterviewState("listening");
+    setLiveTranscript("");
+    setConfidence(0);
+
+    await engine.current.startListening(
+      (text, conf, isFinal) => {
+        setLiveTranscript(text);
+        setConfidence(Math.round(conf * 100));
+      },
+      () => {
+        handleAutoSubmit();
+      }
+    );
+  };
+
+  const handleAutoSubmit = async () => {
+    if (!engine.current || completed) return;
+    
+    engine.current.stopListening();
+    setInterviewState("evaluating");
+
+    const answerText = liveTranscriptRef.current;
+    if (!answerText.trim()) {
+      speakQuestion("I didn't catch that. Could you please repeat your answer?");
+      return;
+    }
+
+    const newMessages = [...messages, { role: "user", content: answerText }];
+    setMessages(newMessages);
+    setLiveTranscript("");
+
+    try {
+      setInterviewState("generating_next_question");
+      
+      const questionId = `q_${newMessages.length}`;
+      const res = await api.interviews.submitAnswer(interview.id, answerText, questionId);
+      
+      if (res.completed) {
+        const finalMsg = "Thank you! That concludes our interview questions today. Please click the button below to submit your interview and receive your final AI scoring assessment.";
+        setMessages([...newMessages, { role: "ai", content: finalMsg }]);
+        setCompleted(true);
+        setInterviewState("speaking");
+      } else {
         setMessages([...newMessages, { role: "ai", content: res.question }]);
+        speakQuestion(res.question);
       }
     } catch (err: any) {
       console.error("Failed to submit answer:", err);
-      setMessages([...newMessages, { role: "ai", content: "Sorry, I encountered an issue processing that answer. Could you please repeat or elaborate?" }]);
-    } finally {
-      setSubmitting(false);
+      const errMsg = "Sorry, I encountered an issue processing that answer. Could you please repeat or elaborate?";
+      setMessages([...newMessages, { role: "ai", content: errMsg }]);
+      speakQuestion(errMsg);
     }
   };
 
   const handleFinishAndScore = async () => {
     if (!interview) return;
-    setSubmitting(true);
+    setInterviewState("evaluating");
 
     try {
-      // Finalize the interview, which triggers ReportGeneratorNode compiling report metrics
       await api.interviews.finalizeSession(interview.id);
-
       alert("🎉 Interview successfully saved! Your final AI recruiter scores and evaluation report have been compiled.");
       window.location.href = "/applications";
     } catch (err) {
       alert("Failed to submit score: " + (err as Error).message);
-    } finally {
-      setSubmitting(false);
+      setInterviewState("speaking");
+    }
+  };
+
+  const formatTime = (totalSec: number) => {
+    const mins = Math.floor(totalSec / 60);
+    const secs = totalSec % 60;
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  const renderStateBadge = () => {
+    switch (interviewState) {
+      case "speaking":
+        return <span className={`${styles.stateBadge} ${styles.speakingState}`}>🔊 AI Speaking</span>;
+      case "listening":
+        return <span className={`${styles.stateBadge} ${styles.listeningState}`}>🎙️ Listening</span>;
+      case "evaluating":
+        return <span className={`${styles.stateBadge} ${styles.evaluatingState}`}>⚙️ Evaluating</span>;
+      case "generating_next_question":
+        return <span className={`${styles.stateBadge} ${styles.generatingState}`}>🧠 Thinking</span>;
     }
   };
 
   if (loading) {
     return (
-      <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', minHeight: '60vh', gap: '1rem', color: 'var(--color-text-secondary)' }}>
-        <div style={{ width: '40px', height: '40px', border: '3px solid var(--color-border)', borderTopColor: 'var(--color-primary-accent)', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
+      <div className={styles.loadingContainer}>
+        <div className={styles.spinner} />
         <span>Initializing AI Interview Room...</span>
-        <style jsx>{`
-          @keyframes spin {
-            to { transform: rotate(360deg); }
-          }
-        `}</style>
       </div>
     );
   }
 
-  // Parse structured details
-  const personal = profile?.skills?.personalInfo || {};
-  const skillsList = profile?.skills?.skills || [];
-  const education = profile?.skills?.education?.[0] || {};
-
   return (
     <div className={styles.container}>
       
-      {/* COLUMN 1: Candidate Profile (Left 25%) */}
-      <aside className={styles.sideColumn}>
-        <div className={styles.profileCard}>
-          <div className={styles.cardTitle}>Candidate Profile</div>
-          
-          <div className={styles.infoItem}>
-            <span>Name</span>
-            <strong>{personal.fullName || "Candidate"}</strong>
-          </div>
+      {/* COLUMN 1: Removed (Candidate Profile Card Section Removed as Requested) */}
 
-          <div className={styles.infoItem}>
-            <span>Experience</span>
-            <strong>{profile?.experienceYears || "3.5"} Years</strong>
-          </div>
-
-          <div className={styles.infoItem}>
-            <span>Education</span>
-            <strong>{education.degree ? `${education.degree} (${education.institution})` : "B.Tech in CSE"}</strong>
-          </div>
-
-          <div className={styles.infoItem}>
-            <span>Resume Score</span>
-            <strong style={{ color: "var(--color-primary-glow)" }}>89%</strong>
-          </div>
-
-          <div className={styles.infoItem}>
-            <span>JD Match</span>
-            <strong style={{ color: "#10B981" }}>92%</strong>
-          </div>
-
-          <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem", marginTop: "0.5rem" }}>
-            <span style={{ fontSize: "0.85rem", color: "var(--color-text-secondary)" }}>Extracted Skills</span>
-            <div className={styles.skillsContainer}>
-              {skillsList.length > 0 ? (
-                skillsList.slice(0, 8).map((skill: string, index: number) => (
-                  <span key={index} className={styles.skillBadge}>{skill}</span>
-                ))
-              ) : (
-                <>
-                  <span className={styles.skillBadge}>React</span>
-                  <span className={styles.skillBadge}>Node.js</span>
-                  <span className={styles.skillBadge}>TypeScript</span>
-                  <span className={styles.skillBadge}>Python</span>
-                </>
-              )}
-            </div>
-          </div>
-        </div>
-      </aside>
-
-      {/* COLUMN 2: Interview Window (Center 50%) */}
+      {/* COLUMN 2: Interview Window (Left/Center 75%) */}
       <main className={styles.centerColumn}>
-        <div className={styles.header}>
-          <h2>AI Interview Window</h2>
-          <div className={styles.statusWrapper}>
-            <span className={styles.timer}>{formatTime(timerSeconds)}</span>
-            <span className={styles.pulse}>{completed ? "Finished" : "Live"}</span>
-          </div>
-        </div>
+        {!setupComplete ? (
+          /* PRE-INTERVIEW SETUP COMPONENT */
+          <div className={styles.setupScreen}>
+            <h3>AI Voice Room Setup</h3>
+            <p className={styles.setupSubtitle}>Please complete the microphone check and configure voice preferences before starting the hands-free interview.</p>
+            
+            <div className={styles.setupCard}>
+              <div className={styles.setupRow}>
+                <span>1. Microphone Status</span>
+                {micPermission === "granted" ? (
+                  <span className={styles.successText}>✓ Microphone Access Granted</span>
+                ) : micPermission === "denied" ? (
+                  <span className={styles.errorText}>✗ Microphone Access Blocked</span>
+                ) : (
+                  <button onClick={handleRequestPermission} className="btn btn-secondary btn-sm">Request Access</button>
+                )}
+              </div>
 
-        {/* AI Avatar Pulse orb */}
-        <div className={styles.avatarContainer}>
-          <div className={styles.avatarOrb} />
-          <div className={styles.avatarLabel}>TalentIQ AI Avatar</div>
-        </div>
-
-        {/* Dynamic chat transcript */}
-        <div className={styles.chatArea}>
-          {messages.map((msg, idx) => (
-            <div key={idx} className={`${styles.message} ${msg.role === 'ai' ? styles.aiMessage : styles.userMessage}`}>
-              <div className={styles.avatar}>{msg.role === 'ai' ? '🤖' : '👤'}</div>
-              <div className={styles.content}>{msg.content}</div>
-            </div>
-          ))}
-        </div>
-
-        {/* Waveform indicator */}
-        {!completed && (
-          <div className={styles.voiceIntelligenceContainer}>
-            <div className={styles.waveform}>
-              {isRecording ? (
-                <>
-                  <div className={styles.waveBar} />
-                  <div className={styles.waveBar} />
-                  <div className={styles.waveBar} />
-                  <div className={styles.waveBar} />
-                  <div className={styles.waveBar} />
-                  <div className={styles.waveBar} />
-                  <div className={styles.waveBar} />
-                </>
-              ) : (
-                <div style={{ height: "2px", width: "80px", background: "rgba(255,255,255,0.15)", borderRadius: "9999px" }} />
+              {micPermission === "denied" && (
+                <div className={styles.warningAlert}>
+                  <strong>Blocked:</strong> The browser has denied microphone access. Please update your browser settings and refresh the page to continue.
+                </div>
               )}
-            </div>
-            <div className={styles.voiceMetricsRow}>
-              <div className={styles.voiceMetric}>
-                WPM: <strong>{isRecording ? "135" : "0"}</strong>
-              </div>
-              <div className={styles.voiceMetric}>
-                Silence: <strong>{isRecording ? "0s" : "1.2s"}</strong>
-              </div>
-              <div className={styles.voiceMetric}>
-                Tone: <strong>Confident</strong>
-              </div>
-            </div>
-          </div>
-        )}
+              
+              <hr className={styles.divider} />
 
-        {completed ? (
-          <div style={{ padding: '1.5rem', textAlign: 'center', background: 'rgba(11,14,24,0.85)', borderTop: '1px solid rgba(216, 231, 242, 0.07)' }}>
-            <button 
-              onClick={handleFinishAndScore} 
-              className="btn btn-primary"
-              disabled={submitting}
-              style={{ width: '100%', maxWidth: '320px' }}
-            >
-              {submitting ? "Analyzing Responses..." : "Complete & Submit Interview"}
-            </button>
+              <div className={styles.settingsGroup}>
+                <label>2. Text-to-Speech Engine</label>
+                <select 
+                  value={voiceSettings.ttsEngine}
+                  onChange={(e) => setVoiceSettings(prev => ({ ...prev, ttsEngine: e.target.value as any, voiceId: "" }))}
+                  className={styles.selectInput}
+                >
+                  <option value="native">Web Speech API (Recommended / Instant)</option>
+                  <option value="kokoro">Kokoro local TTS (Neural ONNX / Local Download)</option>
+                </select>
+              </div>
+
+              <div className={styles.settingsGroup}>
+                <label>3. Interview Voice</label>
+                {voiceSettings.ttsEngine === "native" ? (
+                  <select 
+                    value={voiceSettings.voiceId}
+                    onChange={(e) => setVoiceSettings(prev => ({ ...prev, voiceId: e.target.value }))}
+                    className={styles.selectInput}
+                  >
+                    <option value="">-- Default Indian English voice --</option>
+                    {nativeVoices.map((v, i) => (
+                      <option key={i} value={v.name}>{v.name} ({v.lang})</option>
+                    ))}
+                  </select>
+                ) : (
+                  <select 
+                    value={voiceSettings.voiceId}
+                    onChange={(e) => setVoiceSettings(prev => ({ ...prev, voiceId: e.target.value }))}
+                    className={styles.selectInput}
+                  >
+                    <option value="af_sky">Sky (Female - Default)</option>
+                    <option value="af_heart">Heart (Female)</option>
+                    <option value="af_bella">Bella (Female)</option>
+                    <option value="af_sarah">Sarah (Female)</option>
+                    <option value="bf_emma">Emma (UK Female)</option>
+                    <option value="bm_george">George (UK Male)</option>
+                  </select>
+                )}
+              </div>
+
+              <div className={styles.settingsGroup}>
+                <label>4. Speech Speed ({voiceSettings.speed}x)</label>
+                <input 
+                  type="range" 
+                  min="0.5" 
+                  max="2.0" 
+                  step="0.1" 
+                  value={voiceSettings.speed}
+                  onChange={(e) => setVoiceSettings(prev => ({ ...prev, speed: parseFloat(e.target.value) }))}
+                  className={styles.rangeInput}
+                />
+              </div>
+            </div>
+
+            {modelLoading ? (
+              <div className={styles.modelProgressContainer}>
+                <span>Downloading Local AI Model: <strong>{modelLoadingName}</strong></span>
+                <div className={styles.progressBarBg}>
+                  <div className={styles.progressBarFill} style={{ width: `${modelLoadingProgress}%` }} />
+                </div>
+                <span>Please wait... {modelLoadingProgress}%</span>
+              </div>
+            ) : (
+              <button 
+                onClick={startInterviewSession} 
+                className="btn btn-primary"
+                disabled={micPermission !== "granted"}
+                style={{ width: "100%", marginTop: "1rem" }}
+              >
+                Start Hands-Free Voice Interview
+              </button>
+            )}
           </div>
         ) : (
-          <form className={styles.inputArea} onSubmit={handleSend}>
-            <button 
-              type="button" 
-              className={`${styles.voiceBtn} ${isRecording ? styles.recording : ''}`}
-              onClick={() => setIsRecording(!isRecording)}
-              title="Toggle Voice Input"
-            >
-              🎙️
-            </button>
-            <input 
-              type="text" 
-              value={input} 
-              onChange={(e) => setInput(e.target.value)} 
-              placeholder="Type or speak your answer..." 
-              className={styles.textInput}
-            />
-            <button type="submit" className="btn btn-primary">Send</button>
-          </form>
+          /* ACTIVE INTERVIEW WINDOW */
+          <>
+            <div className={styles.header}>
+              <h2>AI Interview Room</h2>
+              <div className={styles.statusWrapper}>
+                {renderStateBadge()}
+                <span className={styles.timer}>{formatTime(timerSeconds)}</span>
+                <button 
+                  onClick={() => setSettingsOpen(!settingsOpen)} 
+                  className={styles.settingsToggleBtn}
+                  title="Configure Voice Settings"
+                >
+                  ⚙️
+                </button>
+              </div>
+            </div>
+
+            {/* Active Voice settings sidebar overlay */}
+            {settingsOpen && (
+              <div className={styles.settingsOverlay}>
+                <div className={styles.settingsOverlayCard}>
+                  <div className={styles.overlayHeader}>
+                    <h4>Voice Config</h4>
+                    <button onClick={() => setSettingsOpen(false)} className={styles.closeOverlayBtn}>×</button>
+                  </div>
+                  
+                  <div className={styles.settingsGroup}>
+                    <label>Engine</label>
+                    <select 
+                      value={voiceSettings.ttsEngine}
+                      onChange={(e) => setVoiceSettings(prev => ({ ...prev, ttsEngine: e.target.value as any, voiceId: "" }))}
+                      className={styles.selectInput}
+                    >
+                      <option value="native">Web Speech API</option>
+                      <option value="kokoro">Kokoro Local ONNX</option>
+                    </select>
+                  </div>
+
+                  <div className={styles.settingsGroup}>
+                    <label>Voice</label>
+                    <select 
+                      value={voiceSettings.voiceId}
+                      onChange={(e) => setVoiceSettings(prev => ({ ...prev, voiceId: e.target.value }))}
+                      className={styles.selectInput}
+                    >
+                      {voiceSettings.ttsEngine === "native" ? (
+                        nativeVoices.map((v, i) => (
+                          <option key={i} value={v.name}>{v.name}</option>
+                        ))
+                      ) : (
+                        <>
+                          <option value="af_sky">Sky (Female)</option>
+                          <option value="af_heart">Heart (Female)</option>
+                          <option value="bf_emma">Emma (UK Female)</option>
+                          <option value="bm_george">George (UK Male)</option>
+                        </>
+                      )}
+                    </select>
+                  </div>
+
+                  <div className={styles.settingsGroup}>
+                    <label>Speed ({voiceSettings.speed}x)</label>
+                    <input 
+                      type="range" 
+                      min="0.5" 
+                      max="2.0" 
+                      step="0.1" 
+                      value={voiceSettings.speed}
+                      onChange={(e) => setVoiceSettings(prev => ({ ...prev, speed: parseFloat(e.target.value) }))}
+                      className={styles.rangeInput}
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* AI Avatar Pulse orb */}
+            <div className={styles.avatarContainer}>
+              <div className={`${styles.avatarOrb} ${interviewState === "speaking" ? styles.avatarSpeaking : ""}`} />
+              <div className={styles.avatarLabel}>TalentIQ AI Avatar</div>
+            </div>
+
+            {/* Dynamic chat transcript */}
+            <div className={styles.chatArea}>
+              {messages.map((msg, idx) => (
+                <div key={idx} className={`${styles.message} ${msg.role === 'ai' ? styles.aiMessage : styles.userMessage}`}>
+                  <div className={styles.avatar}>{msg.role === 'ai' ? '🤖' : '👤'}</div>
+                  <div className={styles.content}>
+                    {msg.content}
+                    
+                    {/* Render live transcript box (read-only/non-editable) beneath CURRENT question */}
+                    {msg.role === 'ai' && idx === messages.length - 1 && interviewState === 'listening' && (
+                      <div className={styles.liveTranscriptBox}>
+                        <div className={styles.liveTranscriptHeader}>
+                          <span className={styles.pulseLiveDot} /> Live Transcription
+                        </div>
+                        <p className={styles.liveTranscriptText}>
+                          {liveTranscript || "Listening... Speak your answer now."}
+                        </p>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.75rem', gap: '1rem' }}>
+                          {liveTranscript && (
+                            <div className={styles.confidenceText}>
+                              Vosk Match Confidence: <strong>{confidence}%</strong>
+                            </div>
+                          )}
+                          <button
+                            onClick={handleAutoSubmit}
+                            className="btn btn-primary btn-sm"
+                            disabled={!liveTranscript.trim()}
+                            style={{ marginLeft: 'auto', padding: '0.35rem 0.85rem', fontSize: '0.8rem' }}
+                          >
+                            Submit Answer
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Waveform indicator */}
+            {!completed && (
+              <div className={styles.voiceIntelligenceContainer}>
+                <div className={styles.waveform}>
+                  {interviewState === "listening" ? (
+                    <>
+                      <div className={styles.waveBar} />
+                      <div className={styles.waveBar} />
+                      <div className={styles.waveBar} />
+                      <div className={styles.waveBar} />
+                      <div className={styles.waveBar} />
+                      <div className={styles.waveBar} />
+                      <div className={styles.waveBar} />
+                    </>
+                  ) : (
+                    <div style={{ height: "2px", width: "80px", background: "rgba(255,255,255,0.15)", borderRadius: "9999px" }} />
+                  )}
+                </div>
+                <div className={styles.voiceMetricsRow}>
+                  <div className={styles.voiceMetric}>
+                    VAD Status: <strong>{interviewState === "listening" ? "Monitoring" : "Off"}</strong>
+                  </div>
+                  <div className={styles.voiceMetric}>
+                    Auto-Submit: <strong>10s Silence Trigger</strong>
+                  </div>
+                  <div className={styles.voiceMetric}>
+                    Speech Engine: <strong>{voiceSettings.ttsEngine === "native" ? "WebSpeech" : "Kokoro"}</strong>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {completed ? (
+              <div style={{ padding: '1.5rem', textAlign: 'center', background: 'rgba(11,14,24,0.85)', borderTop: '1px solid rgba(216, 231, 242, 0.07)' }}>
+                <button 
+                  onClick={handleFinishAndScore} 
+                  className="btn btn-primary"
+                  disabled={interviewState === "evaluating"}
+                  style={{ width: '100%', maxWidth: '320px' }}
+                >
+                  {interviewState === "evaluating" ? "Analyzing Responses..." : "Complete & Submit Interview"}
+                </button>
+              </div>
+            ) : (
+              /* Non-editable Live text display with manual Submit Answer Button */
+              <div className={styles.handsFreeIndicator}>
+                {interviewState === "listening" ? (
+                  <div className={styles.transcriptSubmitRow}>
+                    <div className={styles.transcriptPreview}>
+                      <strong>Live Preview (Read-only): </strong>
+                      <span>{liveTranscript || "Speak your answer..."}</span>
+                    </div>
+                    <button
+                      onClick={handleAutoSubmit}
+                      className="btn btn-primary"
+                      disabled={!liveTranscript.trim()}
+                      style={{ whiteSpace: 'nowrap' }}
+                    >
+                      Submit Answer
+                    </button>
+                  </div>
+                ) : (
+                  <span>🎙️ Fully Hands-Free System. Speaking/silence governs the flow automatically.</span>
+                )}
+              </div>
+            )}
+          </>
         )}
       </main>
 
@@ -301,42 +699,42 @@ export default function AIInterviewRoom() {
 
           <div className={styles.analysisRow}>
             <span className={styles.analysisLabel}>Confidence</span>
-            <span className={`${styles.analysisValue} styles.success`}>94%</span>
+            <span className={`${styles.analysisValue} ${styles.success}`}>{liveAnalysis.confidence}</span>
           </div>
 
           <div className={styles.analysisRow}>
             <span className={styles.analysisLabel}>Communication</span>
-            <span className={styles.analysisValue}>Excellent</span>
+            <span className={styles.analysisValue}>{liveAnalysis.communication}</span>
           </div>
 
           <div className={styles.analysisRow}>
             <span className={styles.analysisLabel}>Technical Depth</span>
-            <span className={`${styles.analysisValue} styles.success`}>Strong</span>
+            <span className={`${styles.analysisValue} ${styles.success}`}>{liveAnalysis.technicalDepth}</span>
           </div>
 
           <div className={styles.analysisRow}>
             <span className={styles.analysisLabel}>Leadership</span>
-            <span className={styles.analysisValue}>High Potential</span>
+            <span className={styles.analysisValue}>{liveAnalysis.leadership}</span>
           </div>
 
           <div className={styles.analysisRow}>
             <span className={styles.analysisLabel}>Sentiment</span>
-            <span className={styles.analysisValue}>Positive (92%)</span>
+            <span className={styles.analysisValue}>{liveAnalysis.sentiment}</span>
           </div>
 
           <div className={styles.analysisRow}>
             <span className={styles.analysisLabel}>Speaking Speed</span>
-            <span className={styles.analysisValue}>135 WPM</span>
+            <span className={styles.analysisValue}>{liveAnalysis.speed}</span>
           </div>
 
           <div className={styles.analysisRow}>
             <span className={styles.analysisLabel}>Filler Words</span>
-            <span className={`${styles.analysisValue} ${styles.warning}`}>3 detected</span>
+            <span className={`${styles.analysisValue} ${styles.warning}`}>{liveAnalysis.fillerWords}</span>
           </div>
 
           <div className={styles.analysisRow}>
             <span className={styles.analysisLabel}>Risk Flags</span>
-            <span className={styles.analysisValue} style={{ color: "#10B981" }}>None</span>
+            <span className={styles.analysisValue} style={{ color: "#10B981" }}>{liveAnalysis.riskFlags}</span>
           </div>
         </div>
       </aside>
