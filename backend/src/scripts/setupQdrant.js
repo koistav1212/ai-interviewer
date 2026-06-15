@@ -1,7 +1,7 @@
 require('dotenv').config();
 const { qdrant } = require('../config/qdrant');
 
-const collections = ['company_knowledge', 'job_knowledge'];
+const collections = ['company_knowledge', 'job_knowledge', 'resume_knowledge'];
 
 async function setupQdrant() {
   console.log('🔄 Initializing Qdrant collections setup...');
@@ -43,6 +43,14 @@ async function setupQdrant() {
           wait: true
         });
         console.log('✅ Payload index for "jobId" successfully created!');
+      } else if (collection === 'resume_knowledge') {
+        console.log('Creating payload index for "candidateId" in resume_knowledge...');
+        await qdrant.createPayloadIndex(collection, {
+          field_name: 'candidateId',
+          field_schema: 'keyword',
+          wait: true
+        });
+        console.log('✅ Payload index for "candidateId" successfully created!');
       }
     } catch (error) {
       console.error(`❌ Error setting up collection "${collection}":`, error);

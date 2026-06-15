@@ -9,6 +9,7 @@ const upload = multer({ storage: multer.memoryStorage() });
 
 router.use(authMiddleware);
 
+router.get('/profile', roleMiddleware(['CANDIDATE']), candidateController.getProfile);
 router.post('/profile', roleMiddleware(['CANDIDATE']), candidateController.updateProfile);
 router.post('/upload-resume', roleMiddleware(['CANDIDATE']), upload.single('resume'), candidateController.uploadResume);
 router.get('/dashboard', roleMiddleware(['CANDIDATE']), candidateController.getCandidateDashboard);

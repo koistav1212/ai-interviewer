@@ -11,6 +11,7 @@ const reportRoutes = require('./reportRoutes');
 const authMiddleware = require('../middlewares/authMiddleware');
 const roleMiddleware = require('../middlewares/roleMiddleware');
 const jobController = require('../controllers/jobController');
+const interviewSessionController = require('../controllers/interviewSessionController');
 
 // Mount sub-routers
 router.use('/auth', authRoutes);
@@ -22,5 +23,8 @@ router.use('/reports', reportRoutes);
 
 // Spec requirement: GET /dashboard/recruiter
 router.get('/dashboard/recruiter', authMiddleware, roleMiddleware(['RECRUITER', 'ADMIN']), jobController.getRecruiterDashboard);
+
+// Spec requirement: POST /interview/start
+router.post('/interview/start', authMiddleware, interviewSessionController.startSession);
 
 module.exports = router;

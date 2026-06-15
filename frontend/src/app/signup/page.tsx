@@ -51,6 +51,16 @@ function SignUpForm() {
 
   return (
     <div className={styles.container}>
+      <video
+        autoPlay
+        muted
+        loop
+        playsInline
+        src="https://framerusercontent.com/assets/1g8IkhtJmlWcC4zEYWKUmeGWzI.mp4"
+        className={styles.videoBackground}
+      />
+      <div className={styles.videoOverlay} />
+
       <div className={styles.card}>
         <div className={styles.header}>
           <h2>Create an Account</h2>
@@ -58,7 +68,7 @@ function SignUpForm() {
         </div>
 
         {error && (
-          <div style={{ color: "#ef4444", background: "#fef2f2", padding: "0.75rem", borderRadius: "6px", marginBottom: "1rem", fontSize: "0.9rem", border: "1px solid #fee2e2" }}>
+          <div style={{ color: "#ef4444", background: "rgba(239, 68, 68, 0.15)", padding: "0.75rem", borderRadius: "8px", marginBottom: "1.25rem", fontSize: "0.9rem", border: "1px solid rgba(239, 68, 68, 0.25)", textAlign: "center" }}>
             {error}
           </div>
         )}
@@ -138,6 +148,7 @@ function SignUpForm() {
             className="btn btn-primary" 
             id="btn-signup-submit"
             disabled={loading}
+            style={{ width: "100%", marginTop: "0.5rem" }}
           >
             {loading ? "Registering..." : "Sign Up"}
           </button>

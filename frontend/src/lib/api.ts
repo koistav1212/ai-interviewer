@@ -95,6 +95,7 @@ export const api = {
     getRecruiterDashboard: () => apiFetch('/dashboard/recruiter'),
   },
   candidate: {
+    getProfile: () => apiFetch('/candidate/profile'),
     updateProfile: (data: { resumeUrl?: string; resumeText: string; skills?: any; experienceYears?: number }) => 
       apiFetch('/candidate/profile', { method: 'POST', body: JSON.stringify(data) }),
     uploadResume: (file: File) => {

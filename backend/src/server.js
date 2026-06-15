@@ -1,4 +1,12 @@
 require('dotenv').config();
+
+// Polyfill process.getBuiltinModule for Node versions older than v20.16.0
+if (typeof process.getBuiltinModule !== 'function') {
+  process.getBuiltinModule = function (name) {
+    return require(name);
+  };
+}
+
 const app = require('./app');
 
 const PORT = process.env.PORT || 8001;

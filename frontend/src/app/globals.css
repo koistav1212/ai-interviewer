@@ -1,25 +1,48 @@
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-  --primary: #2563eb;
-  --primary-hover: #1d4ed8;
-  --surface: #f8fafc;
-  --border: #e2e8f0;
-  --text-muted: #64748b;
-  --card-bg: #ffffff;
-  --font-geist-sans: "Geist", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  /* TalentIQ Framer-Inspired design tokens */
+  --color-bg: #04070D;
+  --color-surface: #0B0E18;
+  --color-elevated: #101827;
+  --color-primary-glow: #A6DAFF;
+  --color-primary-accent: #5B5EF8;
+  --color-secondary-accent: #8B5CF6;
+  --color-text-primary: #E4E9F2;
+  --color-text-secondary: rgba(255, 255, 255, 0.6);
+  --color-border: rgba(216, 231, 242, 0.07);
+
+  /* Mapping for theme compatibility */
+  --background: var(--color-bg);
+  --foreground: var(--color-text-primary);
+  --primary: var(--color-primary-accent);
+  --secondary: var(--color-secondary-accent);
+  --accent: var(--color-primary-glow);
+  --surface: var(--color-surface);
+  --card-bg: var(--color-surface);
+  --border: var(--color-border);
+  --text-muted: var(--color-text-secondary);
+
+  /* Radius */
+  --radius-premium: 24px; /* Cards use 24px border radius */
+  --radius-button: 8px;   /* Buttons use 8px border radius */
+  --radius-3xl: 24px;
+
+  /* Font Families */
+  --font-inter-family: var(--font-inter), "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-instrument-serif-family: var(--font-instrument-serif), "Instrument Serif", Georgia, serif;
+  --font-space-grotesk-family: var(--font-space-grotesk), "Space Grotesk", sans-serif;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-    --primary: #3b82f6;
-    --primary-hover: #60a5fa;
-    --surface: #171717;
-    --border: #262626;
-    --text-muted: #a3a3a3;
-    --card-bg: #18181b;
+    --background: var(--color-bg);
+    --foreground: var(--color-text-primary);
+    --primary: var(--color-primary-accent);
+    --secondary: var(--color-secondary-accent);
+    --accent: var(--color-primary-glow);
+    --surface: var(--color-surface);
+    --card-bg: var(--color-surface);
+    --border: var(--color-border);
+    --text-muted: var(--color-text-secondary);
   }
 }
 
@@ -39,7 +62,7 @@ body {
 body {
   color: var(--foreground);
   background: var(--background);
-  font-family: var(--font-geist-sans);
+  font-family: var(--font-inter-family);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -49,44 +72,218 @@ a {
   text-decoration: none;
 }
 
-/* Premium utility classes */
+/* Premium layout and structure */
 .container {
   max-width: 1200px;
   margin: 0 auto;
   padding: 0 1.5rem;
 }
 
+/* Base button structure matching TalentIQ Premium Framer spec */
 .btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 0.75rem 1.5rem;
-  border-radius: 8px;
+  padding: 12px 24px;
+  border-radius: var(--radius-button) !important;
   font-weight: 500;
-  transition: all 0.2s ease;
+  font-size: 14px;
+  letter-spacing: -0.015em;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
   cursor: pointer;
   border: none;
-  font-size: 1rem;
 }
 
 .btn-primary {
-  background: var(--primary);
-  color: #fff;
+  background: rgba(255, 255, 255, 0.05) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  backdrop-filter: blur(10px) !important;
+  -webkit-backdrop-filter: blur(10px) !important;
+  background-image: radial-gradient(20% 50% at 50% 100%, #FFFFFF, transparent) !important;
+  color: var(--color-text-primary) !important;
+  box-shadow: 0 4px 30px rgba(0, 0, 0, 0.2) !important;
 }
 
 .btn-primary:hover {
-  background: var(--primary-hover);
-  transform: translateY(-1px);
+  transform: translateY(-2px) !important;
+  box-shadow: 0 0 15px rgba(255, 255, 255, 0.1) !important;
+  border-color: rgba(255, 255, 255, 0.15) !important;
 }
 
-.btn-outline {
-  background: transparent;
-  border: 1px solid var(--border);
-  color: var(--foreground);
+.btn-outline, .btn-secondary {
+  background: transparent !important;
+  border: 1px solid rgba(255, 255, 255, 0.15) !important;
+  color: var(--color-text-primary) !important;
+  border-radius: var(--radius-button) !important;
 }
 
-.btn-outline:hover {
-  background: var(--surface);
+.btn-outline:hover, .btn-secondary:hover {
+  background: rgba(255, 255, 255, 0.03) !important;
+  border-color: rgba(255, 255, 255, 0.4) !important;
+  transform: translateY(-2px) !important;
+  box-shadow: 0 0 15px rgba(166, 218, 255, 0.15) !important;
+}
+
+.btn-ghost {
+  background: transparent !important;
+  border: 1px solid var(--color-primary-accent) !important;
+  color: var(--color-primary-accent) !important;
+  border-radius: var(--radius-button) !important;
+}
+
+.btn-ghost:hover {
+  background: rgba(91, 94, 248, 0.05) !important;
+  transform: translateY(-2px) !important;
+}
+
+/* Typography styles based on style guide */
+h1, h2, h3, h4, h5, h6, .display-headline, .hero-headline, .heading {
+  font-family: var(--font-inter-family);
+  font-weight: 500; /* Inter Medium standard for headers */
+  letter-spacing: -0.03em; /* Spec letter-spacing */
+}
+
+.display-headline {
+  font-size: 78px;
+  line-height: 0.90;
+  color: var(--color-text-primary);
+}
+
+.hero-headline {
+  font-size: 84px; /* Range: 64px - 96px */
+  line-height: 1.05;
+  color: var(--color-text-primary);
+}
+
+.heading {
+  font-size: 48px;
+  line-height: 1.15;
+  color: var(--color-text-primary);
+}
+
+.subheading {
+  font-size: 20px;
+  line-height: 1.40;
+  font-family: var(--font-inter-family);
+  font-weight: 400;
+  letter-spacing: -0.015em;
+  color: var(--color-text-secondary);
+}
+
+.body-text {
+  font-size: 16px; /* Range: 16px - 18px */
+  line-height: 1.60;
+  font-family: var(--font-inter-family);
+  font-weight: 400;
+  color: var(--color-text-secondary);
+}
+
+.eyebrow {
+  font-size: 12px;
+  line-height: 1.50;
+  font-family: var(--font-inter-family);
+  font-weight: 600;
+  letter-spacing: +0.05em;
+  text-transform: uppercase;
+  color: var(--color-primary-glow);
+}
+
+.caption {
+  font-size: 12px;
+  line-height: 1.50;
+  font-family: var(--font-inter-family);
+  font-weight: 400;
+  letter-spacing: +0.02em;
+  color: var(--color-text-secondary);
+}
+
+.highlight-text {
+  font-family: var(--font-instrument-serif-family), Georgia, serif !important;
+  font-style: italic !important;
+  font-weight: 400 !important;
+  color: var(--color-primary-glow) !important;
+  text-shadow: 0 0 10px rgba(166, 218, 255, 0.2) !important;
+}
+
+/* Space Grotesk mappings for numeric metrics */
+.metric, .number, [class*="metric"], [class*="Metric"], [class*="number"], [class*="Number"], [class*="kpiValue"], [class*="KpiValue"], [class*="statsValue"] {
+  font-family: var(--font-space-grotesk-family) !important;
+  font-weight: 700;
+}
+
+/* Forms and Inputs Premium styling */
+input[type="text"],
+input[type="email"],
+input[type="password"],
+input[type="number"],
+input[type="search"],
+textarea,
+select {
+  background: rgba(11, 14, 24, 0.75) !important;
+  border: 1px solid var(--color-border) !important;
+  color: var(--color-text-primary) !important;
+  border-radius: var(--radius-button) !important;
+  padding: 12px 16px !important;
+  font-size: 15px !important;
+  outline: none !important;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+input[type="text"]:focus,
+input[type="email"]:focus,
+input[type="password"]:focus,
+input[type="number"]:focus,
+input[type="search"]:focus,
+textarea:focus,
+select:focus {
+  border-color: var(--color-primary-accent) !important;
+  box-shadow: 0 0 15px rgba(91, 94, 248, 0.3) !important;
+  background: rgba(11, 14, 24, 0.95) !important;
+}
+
+::placeholder {
+  color: var(--color-text-secondary);
+  opacity: 0.8;
+}
+
+/* Hairline border outline style for all card blocks and tables */
+.card, [class*="Card"], [class*="jobCard"], [class*="kpiCard"], [class*="chartCard"] {
+  background: rgba(11, 14, 24, 0.75) !important;
+  backdrop-filter: blur(20px) !important;
+  -webkit-backdrop-filter: blur(20px) !important;
+  border: 1px solid rgba(216, 231, 242, 0.07) !important;
+  border-radius: var(--radius-premium) !important;
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37) !important;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+.card:hover, [class*="Card"]:hover, [class*="jobCard"]:hover, [class*="kpiCard"]:hover, [class*="chartCard"]:hover {
+  border-color: rgba(91, 94, 248, 0.2) !important;
+  box-shadow: 0 8px 32px 0 rgba(91, 94, 248, 0.05) !important;
+}
+
+/* Table container styling */
+table {
+  border-collapse: separate;
+  border-spacing: 0;
+  border: 1px solid var(--color-border) !important;
+  border-radius: var(--radius-premium) !important;
+  overflow: hidden;
+  background: rgba(11, 14, 24, 0.4) !important;
+}
+
+th {
+  color: var(--color-text-primary) !important;
+  font-weight: 600 !important;
+  border-bottom: 1px solid var(--color-border) !important;
+  background: rgba(11, 14, 24, 0.85) !important;
+  padding: 14px 16px !important;
+}
+
+td {
+  color: var(--color-text-secondary) !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04) !important;
+  padding: 14px 16px !important;
 }
 
 /* Animations */

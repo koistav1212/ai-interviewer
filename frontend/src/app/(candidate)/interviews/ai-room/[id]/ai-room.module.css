@@ -1,26 +1,89 @@
 .container {
+  display: grid;
+  grid-template-columns: 25% 50% 25%;
+  gap: 1.5rem;
+  height: calc(100vh - 7rem);
+  background: var(--color-bg);
+  padding: 1.5rem 0;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+/* Side Columns */
+.sideColumn {
   display: flex;
   flex-direction: column;
-  height: calc(100vh - 8rem);
-  background: var(--background);
-  border: 1px solid var(--border);
-  border-radius: 12px;
+  gap: 1.5rem;
+  height: 100%;
+  overflow-y: auto;
+}
+
+.profileCard, .analysisCard {
+  background: rgba(11, 14, 24, 0.75);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(216, 231, 242, 0.07);
+  border-radius: 24px;
+  padding: 1.75rem;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.cardTitle {
+  font-size: 1.1rem;
+  font-weight: 500;
+  color: var(--color-text-primary);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  padding-bottom: 0.75rem;
+  letter-spacing: -0.02em;
+}
+
+/* Center Column */
+.centerColumn {
+  display: flex;
+  flex-direction: column;
+  background: rgba(11, 14, 24, 0.4);
+  border: 1px solid rgba(216, 231, 242, 0.07);
+  border-radius: 24px;
   overflow: hidden;
-  box-shadow: 0 4px 20px rgba(0,0,0,0.05);
+  height: 100%;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+  backdrop-filter: blur(10px);
 }
 
 .header {
-  padding: 1.5rem;
-  border-bottom: 1px solid var(--border);
+  padding: 1.25rem 1.5rem;
+  border-bottom: 1px solid rgba(216, 231, 242, 0.07);
   display: flex;
   justify-content: space-between;
   align-items: center;
-  background: var(--surface);
+  background: rgba(11, 14, 24, 0.8);
 }
 
 .header h2 {
-  font-size: 1.25rem;
-  font-weight: 600;
+  font-size: 1.2rem;
+  font-weight: 500;
+  color: var(--color-text-primary);
+  letter-spacing: -0.02em;
+}
+
+.statusWrapper {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.timer {
+  font-family: var(--font-space-grotesk-family);
+  font-weight: 700;
+  color: var(--color-primary-glow);
+  font-size: 0.95rem;
+  background: rgba(91, 94, 248, 0.1);
+  padding: 0.25rem 0.75rem;
+  border-radius: 6px;
+  border: 1px solid rgba(91, 94, 248, 0.2);
 }
 
 .pulse {
@@ -44,23 +107,58 @@
 
 @keyframes pulsing {
   0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
-  70% { transform: scale(1); box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); }
+  70% { transform: scale(1); box-shadow: 0 0 0 8px rgba(239, 68, 68, 0); }
   100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
 }
 
+/* Avatar Viewport */
+.avatarContainer {
+  height: 160px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(circle, rgba(91, 94, 248, 0.1) 0%, transparent 70%);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+}
+
+.avatarOrb {
+  width: 60px;
+  height: 60px;
+  background: linear-gradient(135deg, var(--color-primary-accent), var(--color-secondary-accent));
+  border-radius: 50%;
+  box-shadow: 0 0 30px rgba(91, 94, 248, 0.6);
+  animation: orbFloat 4s ease-in-out infinite alternate;
+}
+
+@keyframes orbFloat {
+  0% { transform: translateY(-5px) scale(0.95); box-shadow: 0 0 20px rgba(91, 94, 248, 0.4); }
+  100% { transform: translateY(5px) scale(1.05); box-shadow: 0 0 40px rgba(91, 94, 248, 0.8); }
+}
+
+.avatarLabel {
+  font-size: 0.75rem;
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-top: 0.75rem;
+}
+
+/* Chat Transcript area */
 .chatArea {
   flex: 1;
-  padding: 2rem;
+  padding: 1.5rem;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  gap: 1.5rem;
+  gap: 1.25rem;
+  background: rgba(4, 7, 13, 0.4);
 }
 
 .message {
   display: flex;
-  gap: 1rem;
-  max-width: 80%;
+  gap: 0.75rem;
+  max-width: 85%;
 }
 
 .aiMessage {
@@ -73,57 +171,117 @@
 }
 
 .avatar {
-  width: 40px;
-  height: 40px;
+  width: 32px;
+  height: 32px;
   border-radius: 50%;
-  background: var(--surface);
+  background: rgba(255, 255, 255, 0.03);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 1.25rem;
-  border: 1px solid var(--border);
+  font-size: 1rem;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  flex-shrink: 0;
 }
 
 .content {
-  padding: 1rem 1.25rem;
-  border-radius: 12px;
+  padding: 0.75rem 1rem;
+  border-radius: 14px;
   line-height: 1.5;
+  font-size: 0.925rem;
 }
 
 .aiMessage .content {
-  background: var(--surface);
-  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  color: var(--color-text-primary);
 }
 
 .userMessage .content {
-  background: var(--primary);
-  color: white;
+  background: rgba(91, 94, 248, 0.15);
+  border: 1px solid rgba(91, 94, 248, 0.3);
+  color: var(--color-text-primary);
+}
+
+/* Voice intelligence and inputs */
+.voiceIntelligenceContainer {
+  padding: 1rem 1.5rem;
+  background: rgba(11, 14, 24, 0.6);
+  border-top: 1px solid rgba(255, 255, 255, 0.03);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.waveform {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  height: 25px;
+  margin-bottom: 0.5rem;
+}
+
+.waveBar {
+  width: 3px;
+  height: 6px;
+  background: var(--color-primary-glow);
+  border-radius: 9999px;
+  animation: waveAnim 1s ease-in-out infinite alternate;
+}
+
+.waveBar:nth-child(2) { animation-delay: 0.15s; height: 12px; }
+.waveBar:nth-child(3) { animation-delay: 0.3s; height: 22px; }
+.waveBar:nth-child(4) { animation-delay: 0.45s; height: 26px; }
+.waveBar:nth-child(5) { animation-delay: 0.6s; height: 16px; }
+.waveBar:nth-child(6) { animation-delay: 0.75s; height: 8px; }
+.waveBar:nth-child(7) { animation-delay: 0.9s; height: 18px; }
+
+@keyframes waveAnim {
+  0% { transform: scaleY(0.4); }
+  100% { transform: scaleY(1.4); }
+}
+
+.voiceMetricsRow {
+  display: flex;
+  gap: 1.5rem;
+  font-size: 0.75rem;
+  color: var(--color-text-secondary);
+}
+
+.voiceMetric {
+  display: flex;
+  gap: 0.25rem;
+}
+
+.voiceMetric strong {
+  color: var(--color-text-primary);
 }
 
 .inputArea {
-  padding: 1.5rem;
-  border-top: 1px solid var(--border);
+  padding: 1.25rem 1.5rem;
+  border-top: 1px solid rgba(216, 231, 242, 0.07);
   display: flex;
   gap: 1rem;
-  background: var(--surface);
+  background: rgba(11, 14, 24, 0.85);
 }
 
 .voiceBtn {
   background: transparent;
-  border: 1px solid var(--border);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 50%;
-  width: 48px;
-  height: 48px;
+  width: 44px;
+  height: 44px;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 1.25rem;
+  font-size: 1.1rem;
   cursor: pointer;
   transition: all 0.2s ease;
+  color: var(--color-text-primary);
 }
 
 .voiceBtn:hover {
-  background: var(--background);
+  background: rgba(255, 255, 255, 0.05);
 }
 
 .voiceBtn.recording {
@@ -136,14 +294,66 @@
 .textInput {
   flex: 1;
   padding: 0 1rem;
-  border: 1px solid var(--border);
+  border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 8px;
-  background: var(--background);
-  color: var(--foreground);
-  font-size: 1rem;
+  background: rgba(4, 7, 13, 0.5);
+  color: var(--color-text-primary);
+  font-size: 0.95rem;
 }
 
 .textInput:focus {
   outline: none;
-  border-color: var(--primary);
+  border-color: var(--color-primary-accent);
+  box-shadow: 0 0 15px rgba(91, 94, 248, 0.2);
+}
+
+/* Info Items */
+.infoItem {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.85rem;
+  color: var(--color-text-secondary);
+}
+
+.infoItem strong {
+  color: var(--color-text-primary);
+}
+
+.skillsContainer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.skillBadge {
+  font-size: 0.75rem;
+  background: rgba(91, 94, 248, 0.1);
+  border: 1px solid rgba(91, 94, 248, 0.2);
+  color: var(--color-primary-glow);
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+
+.analysisRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.85rem;
+}
+
+.analysisLabel {
+  color: var(--color-text-secondary);
+}
+
+.analysisValue {
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.analysisValue.success {
+  color: #10B981;
+}
+
+.analysisValue.warning {
+  color: #F59E0B;
 }

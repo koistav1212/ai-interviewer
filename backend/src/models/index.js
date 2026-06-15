@@ -13,6 +13,7 @@ const models = {
   InterviewScore: require('./interviewScore'),
   Report: require('./report'),
   CompanyIntelligence: require('./companyIntelligence'),
+  InterviewSession: require('./interviewSession'),
   mongoose,
 };
 

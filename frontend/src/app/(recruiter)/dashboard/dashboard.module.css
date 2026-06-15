@@ -1,41 +1,49 @@
 .pageTitle {
-  font-size: 2rem;
+  font-size: 2.5rem;
   margin-bottom: 2rem;
-  font-weight: 700;
-  letter-spacing: -0.02em;
+  font-weight: 500;
+  letter-spacing: -0.03em;
+  color: var(--color-text-primary);
 }
 
 .kpiGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   gap: 1.5rem;
   margin-bottom: 2rem;
 }
 
 .kpiCard {
-  background: var(--background);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 1.5rem;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.02);
-  transition: transform 0.2s ease;
+  background: rgba(11, 14, 24, 0.75) !important;
+  backdrop-filter: blur(20px) !important;
+  -webkit-backdrop-filter: blur(20px) !important;
+  border: 1px solid rgba(216, 231, 242, 0.07) !important;
+  border-radius: 24px !important;
+  padding: 1.75rem;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3) !important;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1) !important;
 }
 
 .kpiCard:hover {
-  transform: translateY(-2px);
+  transform: translateY(-3px) !important;
+  border-color: rgba(166, 218, 255, 0.15) !important;
+  box-shadow: 0 15px 35px rgba(91, 94, 248, 0.05) !important;
 }
 
 .kpiCard h3 {
-  font-size: 0.875rem;
-  color: var(--text-muted);
+  font-size: 0.85rem;
+  color: var(--color-text-secondary);
   margin-bottom: 0.75rem;
   font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
 }
 
 .kpiValue {
-  font-size: 2rem;
-  font-weight: 700;
-  color: var(--primary);
+  font-size: 2.25rem;
+  font-family: var(--font-space-grotesk-family) !important;
+  font-weight: 700 !important;
+  color: var(--color-text-primary);
 }
 
 .chartsRow {
@@ -45,55 +53,64 @@
 }
 
 .chartCard {
-  background: var(--background);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 1.5rem;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.02);
+  background: rgba(11, 14, 24, 0.75) !important;
+  backdrop-filter: blur(20px) !important;
+  -webkit-backdrop-filter: blur(20px) !important;
+  border: 1px solid rgba(216, 231, 242, 0.07) !important;
+  border-radius: 24px !important;
+  padding: 2rem;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3) !important;
 }
 
 .chartCard h3 {
-  font-size: 1.1rem;
+  font-size: 1.25rem;
   margin-bottom: 1.5rem;
-  font-weight: 600;
+  font-weight: 500;
+  color: var(--color-text-primary);
+  letter-spacing: -0.02em;
 }
 
 .funnelPlaceholder {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: 0.5rem;
+  align-items: flex-start;
+  gap: 0.75rem;
+  width: 100%;
 }
 
 .funnelStage {
-  background: var(--primary);
-  color: white;
-  padding: 0.5rem 1rem;
-  border-radius: 4px;
+  background: linear-gradient(90deg, rgba(91, 94, 248, 0.2), rgba(166, 218, 255, 0.2)) !important;
+  border: 1px solid rgba(166, 218, 255, 0.15) !important;
+  color: var(--color-text-primary);
+  padding: 0.75rem 1.25rem;
+  border-radius: 8px;
   display: flex;
   justify-content: space-between;
   align-items: center;
   font-weight: 500;
   font-size: 0.9rem;
   transition: all 0.3s ease;
+  min-width: 120px;
 }
 
-.funnelStage:nth-child(2) { background: #3b82f6; opacity: 0.9; }
-.funnelStage:nth-child(3) { background: #60a5fa; opacity: 0.9; }
-.funnelStage:nth-child(4) { background: #93c5fd; opacity: 0.9; color: var(--foreground); }
+.funnelStage:hover {
+  border-color: var(--color-primary-glow) !important;
+  box-shadow: 0 0 15px rgba(166, 218, 255, 0.15);
+  transform: translateX(3px);
+}
 
 .efficiencyStats {
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  gap: 1.25rem;
 }
 
 .statRow {
   display: flex;
   justify-content: space-between;
   padding-bottom: 0.75rem;
-  border-bottom: 1px solid var(--border);
-  color: var(--text-muted);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  color: var(--color-text-secondary);
 }
 
 .statRow:last-child {
@@ -102,4 +119,6 @@
 
 .statRow strong {
   color: #10b981; /* Green color for positive efficiency */
+  font-family: var(--font-space-grotesk-family);
+  font-weight: 700;
 }

@@ -11,6 +11,7 @@ from routes.parse_jd import router as parse_jd_router
 from routes.parse_resume import router as parse_resume_router
 from routes.interview import router as interview_router
 from routes.company_intelligence import router as company_intelligence_router
+from routes.candidate_intelligence import router as candidate_intelligence_router
 
 app = FastAPI(
     title="TalentIQ AI Service",
@@ -32,6 +33,7 @@ app.include_router(parse_jd_router)
 app.include_router(parse_resume_router)
 app.include_router(interview_router)
 app.include_router(company_intelligence_router)
+app.include_router(candidate_intelligence_router)
 
 @app.get("/health")
 def health_check():

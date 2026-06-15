@@ -1,5 +1,6 @@
 const { CandidateProfile, Job, Application } = require('../models');
 const pdfParse = require('pdf-parse');
+const { indexResume } = require('../services/resumeProcessor');
 
 
 exports.updateProfile = async (req, res, next) => {
@@ -22,6 +23,11 @@ exports.updateProfile = async (req, res, next) => {
         skills: skills || [],
         experienceYears: experienceYears || 0.0,
       });
+    }
+
+    // Index candidate's actual resume to Qdrant (resume_knowledge)
+    if (profile.resumeText && profile.resumeText.trim()) {
+      await indexResume(userId, profile.resumeText, profile.skills);
     }
 
     return res.status(200).json({ message: 'Profile updated successfully', profile });
@@ -186,6 +192,11 @@ exports.uploadResume = async (req, res, next) => {
         skills: structuredJson,
         experienceYears: expYears,
       });
+    }
+
+    // Index candidate's actual resume to Qdrant (resume_knowledge)
+    if (rawText && rawText.trim()) {
+      await indexResume(userId, rawText, structuredJson);
     }
 
     return res.status(200).json({ message: 'Resume uploaded and parsed successfully', profile });
@@ -358,3 +369,15 @@ function parseResumeTextHeuristic(text) {
 
   return result;
 }
+
+exports.getProfile = async (req, res, next) => {
+  try {
+    const profile = await CandidateProfile.findOne({ userId: req.user.id });
+    if (!profile) {
+      return res.status(200).json(null);
+    }
+    return res.status(200).json(profile);
+  } catch (err) {
+    next(err);
+  }
+};

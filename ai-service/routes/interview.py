@@ -2,6 +2,8 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from typing import List, Dict, Any, Optional
 from services.interview_graph import interview_graph, generate_interview_report
+from models.interview_schema import FirstQuestionRequest, FirstQuestionResponse
+from services.first_question import generate_first_question_with_groq
 
 router = APIRouter()
 
@@ -63,4 +65,20 @@ async def interview_finalize(state: InterviewStateModel):
         return report
     except Exception as e:
         print(f"Error in /interview/finalize: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/interview/first-question")
+async def first_question(request: FirstQuestionRequest):
+    """
+    Generates the first interview question based on resume, job, and company context.
+    """
+    try:
+        result = generate_first_question_with_groq(
+            resume=request.resume,
+            job=request.job,
+            company=request.company
+        )
+        return result
+    except Exception as e:
+        print(f"Error in /interview/first-question: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
