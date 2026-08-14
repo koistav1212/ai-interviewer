@@ -1,8 +1,8 @@
-const { getEmbedding } = require('./embeddingService');
+const { getEmbedding, getSparseEmbedding } = require('./embeddingService');
 const { qdrant } = require('../config/qdrant');
 const crypto = require('crypto');
 
-const RESUME_COLLECTION = 'resume_knowledge';
+const KNOWLEDGE_COLLECTION = 'interview_knowledge';
 
 async function searchWebFootprint(query) {
   const apiKey = process.env.TAVILY_API_KEY;
@@ -102,9 +102,9 @@ async function indexResumeStructured(candidateId, resumeText, resumeJson) {
   if (!candidateId) return;
 
   try {
-    // Delete existing points for this candidate in resume_knowledge
+    // Delete existing points for this candidate in interview_knowledge
     console.log(`Clearing existing resume chunks for candidate ${candidateId}...`);
-    await qdrant.delete(RESUME_COLLECTION, {
+    await qdrant.delete(KNOWLEDGE_COLLECTION, {
       filter: {
         must: [{ key: 'candidateId', match: { value: candidateId.toString() } }]
       }
@@ -182,21 +182,27 @@ Interview Focus Recommendations: ${(intelligence.interviewRecommendations || [])
     for (let i = 0; i < chunks.length; i++) {
       const chunk = chunks[i];
       const embedding = await getEmbedding(chunk.text);
+      const sparse = await getSparseEmbedding(chunk.text);
       
       points.push({
         id: crypto.randomUUID(),
-        vector: embedding,
+        vector: {
+          "": embedding,
+          "bm25": sparse
+        },
         payload: {
           candidateId: candidateId.toString(),
-          type: 'resume',
+          content_type: 'resume_knowledge',
           section: chunk.section,
-          text: chunk.text
+          text: chunk.text,
+          topic: 'candidate_profile',
+          subtopic: chunk.section
         }
       });
     }
 
     // 7. Store in Qdrant
-    await qdrant.upsert(RESUME_COLLECTION, {
+    await qdrant.upsert(KNOWLEDGE_COLLECTION, {
       wait: true,
       points
     });

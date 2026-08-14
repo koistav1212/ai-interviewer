@@ -39,6 +39,36 @@ async function getEmbedding(text) {
   }
 }
 
+async function getSparseEmbedding(text) {
+  if (!text || typeof text !== 'string') return { indices: [], values: [] };
+  const words = text.toLowerCase().match(/\w+/g) || [];
+  const termCounts = {};
+  for (const word of words) {
+    if (word.length < 2) continue; // skip single letter
+    termCounts[word] = (termCounts[word] || 0) + 1;
+  }
+  
+  const indicesMap = new Map();
+  for (const [word, count] of Object.entries(termCounts)) {
+    // Simple FNV-1a hash to 32-bit integer for index
+    let hash = 2166136261;
+    for (let i = 0; i < word.length; i++) {
+      hash ^= word.charCodeAt(i);
+      hash += (hash << 1) + (hash << 4) + (hash << 7) + (hash << 8) + (hash << 24);
+    }
+    const index = Math.abs(hash) % 10000000; // Limit vocabulary space
+    
+    // Handle collisions by adding counts
+    indicesMap.set(index, (indicesMap.get(index) || 0) + count);
+  }
+
+  const indices = Array.from(indicesMap.keys());
+  const values = Array.from(indicesMap.values());
+  
+  return { indices, values };
+}
+
 module.exports = {
-  getEmbedding
+  getEmbedding,
+  getSparseEmbedding
 };

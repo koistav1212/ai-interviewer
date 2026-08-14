@@ -42,15 +42,7 @@ export default function Login() {
 
   return (
     <div className={styles.container}>
-      <video
-        autoPlay
-        muted
-        loop
-        playsInline
-        src="https://framerusercontent.com/assets/1g8IkhtJmlWcC4zEYWKUmeGWzI.mp4"
-        className={styles.videoBackground}
-      />
-      <div className={styles.videoOverlay} />
+      <div className={styles.atmosphere} />
 
       <div className={styles.card}>
         <div className={styles.header}>
@@ -123,7 +115,7 @@ export default function Login() {
         </div>
         
         <p className={styles.footer}>
-          Don't have an account? <Link href="/signup">Sign up here</Link>
+          Don&apos;t have an account? <Link href="/signup">Sign up here</Link>
         </p>
       </div>
     </div>

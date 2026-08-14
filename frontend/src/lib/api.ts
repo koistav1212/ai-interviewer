@@ -1,5 +1,6 @@
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001';
 
+
 export interface User {
   id: string;
   name: string;
@@ -135,7 +136,7 @@ export const api = {
         }) 
       }),
     finalizeSession: (id: string) => 
-      apiFetch(`/interviews/${id}/finalize`, { method: 'POST' }),
+      apiFetch(`/interviews/${id}/finalize`, { method: 'POST' })
   },
   reports: {
     getCandidateReport: (applicationId: string) => apiFetch(`/reports/candidate/${applicationId}`),

@@ -1,0 +1,500 @@
+:global(*) {
+  box-sizing: border-box;
+}
+
+:global(html),
+:global(body) {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
+  margin: 0;
+}
+
+/* =========================================
+   BASE HERO/SCENE ARCHITECTURE
+   ========================================= */
+.hero {
+  position: relative;
+  width: 100%;
+  min-height: 100svh;
+  overflow: hidden;
+  isolation: isolate;
+  background: #050b18;
+}
+
+/* GSAP Scene Containers */
+.scene {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100svh;
+  opacity: 0;
+  visibility: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.scene.active {
+  opacity: 1;
+  visibility: visible;
+  z-index: 10;
+}
+
+.hero-inner {
+  position: relative;
+  width: min(100% - 48px, 1600px);
+  height: 100svh;
+  margin: 0 auto;
+}
+
+.hero-content {
+  position: relative;
+  z-index: 5;
+  padding-top: clamp(120px, 15vh, 220px);
+  height: 100%;
+  pointer-events: none; /* Let clicks pass to interactive nodes if needed */
+}
+.hero-content > * {
+  pointer-events: auto;
+}
+
+/* Typography Base */
+.hero-title {
+  max-width: 900px;
+  margin: 0;
+  font-size: clamp(3.5rem, 7vw, 8.5rem);
+  line-height: 0.9;
+  letter-spacing: -0.05em;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.96);
+}
+
+.hero-subtitle {
+  max-width: 500px;
+  margin-top: clamp(24px, 3vw, 42px);
+  font-size: clamp(1rem, 1.5vw, 1.45rem);
+  line-height: 1.5;
+  color: rgba(220, 230, 245, 0.7);
+}
+
+.label {
+  font-size: 12px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: rgba(180, 200, 225, 0.5);
+  font-weight: 600;
+}
+
+/* Visuals (Background / Character / Environment) */
+.hero-visual {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+}
+
+.hero-visual img {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center center;
+}
+
+.hero-character {
+  position: absolute;
+  right: -3%;
+  bottom: 0;
+  width: min(68vw, 950px);
+  height: auto;
+  max-height: 96svh;
+  object-fit: contain;
+  object-position: bottom right;
+}
+
+@media (min-width: 1200px) {
+  .hero-character {
+    width: min(65vw, 1000px);
+    right: 0;
+    bottom: -2%;
+  }
+}
+
+/* Overlays */
+.overlay-gradient {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, rgba(7, 11, 22, 0.95) 0%, rgba(7, 11, 22, 0.4) 40%, rgba(7, 11, 22, 0) 100%);
+  z-index: 2;
+}
+
+.overlay-vignette {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at center, transparent 30%, rgba(7, 11, 22, 0.8) 100%);
+  z-index: 2;
+}
+
+/* =========================================
+   NAVIGATION (COMPACT & RESPONSIVE)
+   ========================================= */
+.navbar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 28px min(4vw, 48px);
+  background: linear-gradient(to bottom, rgba(5, 9, 20, 0.8) 0%, transparent 100%);
+}
+
+.brand {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #fff;
+  letter-spacing: -0.02em;
+}
+
+.nav-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.nav-button {
+  min-height: 44px;
+  padding: 0 18px;
+  white-space: nowrap;
+  font-weight: 600;
+  font-size: 14px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+}
+
+.nav-button.secondary {
+  color: #fff;
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.nav-button.primary {
+  color: #050b18;
+  background: #fff;
+  border: none;
+}
+
+@media (max-width: 479px) {
+  .navbar {
+    padding: 20px 24px;
+  }
+  .brand {
+    font-size: 1.3rem;
+  }
+  .nav-actions {
+    gap: 8px;
+  }
+  .nav-button {
+    min-height: 42px;
+    padding: 0 13px;
+    font-size: 0.82rem;
+  }
+  .nav-button.primary {
+    padding: 0 14px;
+  }
+}
+@media (max-width: 360px) {
+  .nav-button.secondary {
+    display: none;
+  }
+}
+
+/* =========================================
+   FLOATING INTERACTIVE NODES & TAGS
+   ========================================= */
+.hero-tags {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  pointer-events: none;
+}
+
+.hero-tag {
+  position: absolute;
+  color: #7dd3fc;
+  font-size: clamp(0.65rem, 0.8vw, 0.85rem);
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  opacity: 0.9;
+}
+.hero-tag::before {
+  content: "•";
+  margin-right: 8px;
+}
+
+.floating-node {
+  position: absolute;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 15px;
+  border: 1px solid rgba(125, 211, 252, 0.2);
+  border-radius: 999px;
+  background: rgba(7, 14, 30, 0.45);
+  backdrop-filter: blur(14px);
+  color: #d9f4ff;
+  cursor: pointer;
+  transition: transform 0.3s ease, background 0.3s ease, border-color 0.3s ease;
+  font-size: clamp(0.7rem, 0.9vw, 0.9rem);
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  pointer-events: auto;
+}
+
+.floating-node:hover {
+  transform: translateY(-4px) scale(1.03);
+  background: rgba(15, 40, 65, 0.7);
+  border-color: rgba(125, 211, 252, 0.6);
+}
+
+/* Desktop Positions for Nodes/Tags */
+.tag-skills { top: 25%; right: 12%; }
+.tag-experience { top: 50%; right: 8%; }
+.tag-potential { top: 73%; right: 20%; }
+.tag-context { top: 17%; right: 32%; }
+.tag-reasoning { top: 35%; right: 28%; }
+.tag-adaptability { top: 82%; right: 42%; }
+.tag-impact { top: 62%; left: 52%; }
+.tag-growth { top: 13%; left: 58%; }
+
+/* =========================================
+   PREMIUM EDITORIAL CARDS
+   ========================================= */
+.glass-card {
+  background: rgba(12, 16, 28, 0.4);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 16px;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+  padding: clamp(16px, 2vw, 24px) clamp(20px, 3vw, 32px);
+  color: rgba(255,255,255,0.9);
+}
+
+/* specific positional helpers for scenes */
+.flex-col { display: flex; flexDirection: column; }
+.gap-small { gap: 12px; }
+.gap-medium { gap: 24px; }
+.gap-large { gap: 40px; }
+
+/* Timeline UI */
+.timeline-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.timeline-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #3DDCFF;
+}
+.timeline-line {
+  width: 1px;
+  height: clamp(20px, 4vh, 40px);
+  background: rgba(255, 255, 255, 0.1);
+  margin-left: 2px;
+}
+
+/* =========================================
+   RESPONSIVE UTILITIES
+   ========================================= */
+.stack-responsive {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: clamp(16px, 3vw, 32px);
+}
+
+.stack-responsive.center {
+  align-items: center;
+}
+
+.stack-responsive > .plus-sign {
+  padding: 24px;
+  font-size: 24px;
+  color: #3DDCFF;
+}
+
+.card-responsive {
+  width: 100%;
+  max-width: 280px;
+}
+
+.w-full-max {
+  width: 100%;
+  max-width: 400px;
+}
+
+.scene-text-left {
+  text-align: left;
+  max-width: 700px;
+}
+
+.scene-text-right {
+  text-align: right;
+  max-width: 700px;
+}
+
+.scene-text-center {
+  text-align: center;
+  max-width: 800px;
+}
+
+.diag-card {
+  width: 80%;
+}
+.diag-card-center {
+  width: 60%;
+}
+
+@media (max-width: 767px) {
+  .stack-responsive {
+    flex-direction: column;
+    align-items: center;
+    width: 100%;
+  }
+  .stack-responsive > .plus-sign {
+    padding: 8px;
+    transform: rotate(90deg); /* Optional: turn the plus or just keep it */
+  }
+  .card-responsive {
+    max-width: 100%;
+  }
+  .scene-text-left, .scene-text-right {
+    text-align: center;
+  }
+  .diag-card, .diag-card-center {
+    width: 100%;
+    align-self: center !important;
+  }
+}
+
+/* Mobile: 320px - 479px */
+@media (max-width: 479px) {
+  .hero-inner {
+    width: 100%;
+    padding: 0 24px;
+  }
+  .hero-content {
+    padding-top: 28svh;
+  }
+  .hero-title {
+    max-width: 100%;
+    font-size: clamp(3.25rem, 17vw, 5.5rem);
+    line-height: 0.92;
+    letter-spacing: -0.065em;
+  }
+  .hero-subtitle {
+    max-width: 290px;
+    margin-top: 22px;
+    font-size: 1.05rem;
+  }
+  .hero-character {
+    width: 125vw;
+    max-width: none;
+    right: -55vw;
+    bottom: -3vh;
+    opacity: 0.4;
+  }
+  
+  /* Mobile Tag Reduction */
+  .tag-experience, .tag-adaptability, .tag-impact, .tag-growth, .tag-context {
+    display: none;
+  }
+  .tag-skills { top: 30%; right: 8%; }
+  .tag-reasoning { top: 55%; right: 5%; }
+  .tag-potential { top: auto; bottom: 16%; right: 12%; }
+}
+
+/* Phone Standard: 480px - 767px */
+@media (min-width: 480px) and (max-width: 767px) {
+  .hero-inner {
+    width: 100%;
+    padding: 0 32px;
+  }
+  .hero-content {
+    padding-top: 25svh;
+  }
+  .hero-title {
+    font-size: clamp(4rem, 14vw, 6rem);
+    max-width: 620px;
+  }
+  .hero-subtitle {
+    max-width: 420px;
+  }
+  .hero-character {
+    width: 105vw;
+    right: -35vw;
+    bottom: -5vh;
+    opacity: 0.5;
+  }
+  
+  /* Tag Reduction */
+  .tag-adaptability, .tag-impact, .tag-growth {
+    display: none;
+  }
+}
+
+/* Tablet: 768px - 1024px */
+@media (min-width: 768px) and (max-width: 1024px) {
+  .hero-inner {
+    width: min(100% - 64px, 1100px);
+  }
+  .hero-content {
+    padding-top: 20svh;
+  }
+  .hero-title {
+    max-width: 720px;
+    font-size: clamp(5rem, 9vw, 7rem);
+  }
+  .hero-character {
+    width: 75vw;
+    right: -12vw;
+    bottom: 0;
+  }
+}
+
+/* Landscape Mobile */
+@media (max-height: 500px) and (orientation: landscape) {
+  .hero, .hero-inner {
+    min-height: 100svh;
+  }
+  .hero-content {
+    padding-top: 16svh;
+  }
+  .hero-title {
+    max-width: 55vw;
+    font-size: clamp(3rem, 6vw, 5.5rem);
+  }
+  .hero-subtitle {
+    max-width: 45vw;
+    margin-top: 16px;
+    font-size: 1rem;
+  }
+  .hero-character {
+    width: 58vw;
+    right: 3vw;
+    bottom: -15%;
+    opacity: 0.85;
+  }
+}

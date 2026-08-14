@@ -51,15 +51,7 @@ function SignUpForm() {
 
   return (
     <div className={styles.container}>
-      <video
-        autoPlay
-        muted
-        loop
-        playsInline
-        src="https://framerusercontent.com/assets/1g8IkhtJmlWcC4zEYWKUmeGWzI.mp4"
-        className={styles.videoBackground}
-      />
-      <div className={styles.videoOverlay} />
+      <div className={styles.atmosphere} />
 
       <div className={styles.card}>
         <div className={styles.header}>

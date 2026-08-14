@@ -1,38 +1,6 @@
 const { Interview, InterviewScore, Application, Job } = require('../models');
 const { getEmbedding } = require('../services/embeddingService');
-const { qdrant } = require('../config/qdrant');
-
-// Helper to query Qdrant collections
-async function getContextChunks(collectionName, queryText, companyFilter = null, jobIdFilter = null) {
-  try {
-    const embedding = await getEmbedding(queryText);
-    const searchParams = {
-      vector: embedding,
-      limit: 5
-    };
-    
-    const mustFilters = [];
-    if (companyFilter) {
-      mustFilters.push({ key: 'company', match: { value: companyFilter } });
-    }
-    if (jobIdFilter) {
-      mustFilters.push({ key: 'jobId', match: { value: jobIdFilter } });
-    }
-    
-    if (mustFilters.length > 0) {
-      searchParams.filter = {
-        must: mustFilters
-      };
-    }
-    
-    const results = await qdrant.search(collectionName, searchParams);
-    return results.map(r => r.payload?.text || '').join('\n\n');
-  } catch (err) {
-    console.warn(`Qdrant search failed for ${collectionName}:`, err.message);
-    return '';
-  }
-}
-
+// Qdrant retrieval is now handled dynamically by the Python AI Service (Retrieval Router).
 exports.createInterview = async (req, res, next) => {
   try {
     const { applicationId, scheduledTime, meetingLink } = req.body;
@@ -72,6 +40,25 @@ exports.getInterviewDetails = async (req, res, next) => {
       })
       .populate('score');
     if (!interview) return res.status(404).json({ message: 'Interview not found' });
+
+    // Role-based authorization
+    const currentUser = req.user;
+    
+    // Candidate can only access their own interview
+    if (currentUser.role === 'CANDIDATE') {
+      if (!interview.application || interview.application.candidateId.toString() !== currentUser.id.toString()) {
+        return res.status(403).json({ message: 'Access denied: Insufficient privileges' });
+      }
+    } 
+    // Recruiter can access interviews for their own jobs
+    else if (currentUser.role === 'RECRUITER' || currentUser.role === 'ADMIN') {
+      if (!interview.application || !interview.application.job || interview.application.job.recruiterId.toString() !== currentUser.id.toString()) {
+        return res.status(403).json({ message: 'Access denied: Insufficient privileges' });
+      }
+    } else {
+      return res.status(403).json({ message: 'Access denied: Invalid user role' });
+    }
+
     return res.status(200).json(interview);
   } catch (err) {
     next(err);
@@ -235,45 +222,61 @@ exports.startInterviewSession = async (req, res, next) => {
     const profile = await CandidateProfile.findOne({ userId: candidateId });
     const resumeText = profile ? profile.resumeText : '';
     
-    // Query Qdrant for Job Context and Company Context
-    console.log('Retrieving Qdrant chunks for Job Context and Company Context...');
-    const jobQuery = job.description || job.title;
-    const jobContext = await getContextChunks('job_knowledge', jobQuery, null, job.id.toString());
-    
-    const companyContext = job.company 
-      ? await getContextChunks('company_knowledge', `${job.company} culture technology`, job.company)
-      : '';
-
-    // Compile list of required skills
-    const requiredSkills = (job.skills || []).map(s => s.skillName);
-
-    // Construct initial state
+    // Level 1: Stable Interview Context (structured)
     const initialState = {
       sessionId: interview.id,
       candidateId: candidateId.toString(),
       jobId: job.id.toString(),
-      resumeContext: resumeText,
-      jobContext: jobContext || job.description,
-      companyContext: companyContext || (job.company ? `${job.company} details.` : 'General company context.'),
-      currentQuestion: '',
-      currentAnswer: '',
+      
+      // Level 1 Memory
+      candidate_profile: {
+        name: profile?.userId?.name || 'Candidate',
+        experience: profile?.experience || []
+      },
+      resume_entities: profile?.resumeJson || { text: resumeText },
+      jd_profile: {
+        title: job.title,
+        description: job.description,
+        skills: job.skills,
+        requirements: job.requirements
+      },
+      interview_blueprint: {
+        company: job.company,
+        industry: job.industry || 'Technology',
+        role: job.title,
+        interview_mix: {
+          resume_based: 20,
+          technical: 20,
+          business_case: 20,
+          industry: 15,
+          behavioral: 10,
+          guesstimate: 10,
+          hr_motivation: 5
+        }
+      },
+      company_profile: {
+        name: job.company
+      },
+      industry_profile: {
+        name: job.industry || 'Technology'
+      },
+
+      // Level 3 Memory (Current Answer Memory)
+      current_question: '',
+      current_answer: '',
+      claims: [],
+      weaknesses: [],
+      technologies: [],
+      covered_topics: [],
+      uncovered_topics: (job.skills || []).map(s => s.skillName),
+      follow_up_depth: 0,
       askedQuestions: [],
-      coveredTopics: [],
-      requiredSkills: requiredSkills,
       scores: [],
       difficulty: 'medium',
       questionCount: 0,
-      recommendation: '',
       completed: false,
       answers: [],
-      next_step: null,
-      technicalScore: null,
-      communicationScore: null,
-      overallScore: null,
-      coverage: null,
-      strengths: null,
-      weaknesses: null,
-      feedback: null
+      next_step: null
     };
 
     // Call FastAPI service
@@ -301,7 +304,7 @@ exports.startInterviewSession = async (req, res, next) => {
     await interview.save();
 
     return res.status(200).json({
-      question: updatedState.currentQuestion,
+      question: updatedState.current_question,
       completed: updatedState.completed
     });
   } catch (err) {
@@ -341,11 +344,11 @@ exports.submitAnswer = async (req, res, next) => {
     }
 
     // Update state with answer
-    state.currentAnswer = answer;
+    state.current_answer = answer;
     if (!state.answers) {
       state.answers = [];
     }
-    if (state.answers.length < state.askedQuestions.length) {
+    if (state.answers.length < (state.askedQuestions || []).length) {
       state.answers.push(answer);
     }
 
@@ -369,7 +372,7 @@ exports.submitAnswer = async (req, res, next) => {
     await interview.save();
 
     return res.status(200).json({
-      question: updatedState.currentQuestion,
+      question: updatedState.current_question,
       completed: updatedState.completed
     });
   } catch (err) {

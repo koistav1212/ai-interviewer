@@ -1,11 +1,10 @@
 const { Job, CompanyIntelligence } = require('../models');
 const { qdrant } = require('../config/qdrant');
-const { getEmbedding } = require('./embeddingService');
+const { getEmbedding, getSparseEmbedding } = require('./embeddingService');
 const crypto = require('crypto');
 
-// Target collections
-const COMPANY_COLLECTION = 'company_knowledge';
-const JOB_COLLECTION = 'job_knowledge';
+// Target collection
+const KNOWLEDGE_COLLECTION = 'interview_knowledge';
 
 // Categories of intelligence to collect
 const SEARCH_CATEGORIES = [
@@ -207,18 +206,28 @@ async function chunkDocuments(documents) {
 /**
  * 5. Embed
  */
-async function generateEmbeddings(chunks) {
+async function generateEmbeddings(chunks, jobMetadata = {}) {
   const promises = chunks.map(async (chunk) => {
     const embedding = await getEmbedding(chunk.text);
+    const sparse = await getSparseEmbedding(chunk.text);
     return {
       id: crypto.randomUUID(),
       vector: embedding,
+      sparseVector: sparse,
       source: chunk.source,
       text: chunk.text,
       company: chunk.company,
       jobId: chunk.jobId,
       role: chunk.role,
-      chunkIndex: chunk.chunkIndex
+      chunkIndex: chunk.chunkIndex,
+      // Add rich metadata
+      industry: jobMetadata.industry || 'technology',
+      role_family: jobMetadata.role_family || 'engineering',
+      content_type: chunk.source === 'job-description' ? 'job_knowledge' : 'company_knowledge',
+      topic: 'general',
+      subtopic: chunk.source,
+      difficulty: 'medium',
+      question_relevance: ['technical', 'behavioral', 'industry']
     };
   });
   return Promise.all(promises);
@@ -228,48 +237,32 @@ async function generateEmbeddings(chunks) {
  * 6. Store in Qdrant
  */
 async function storeVectors(vectors) {
-  const jobPoints = [];
-  const companyPoints = [];
-
-  for (const v of vectors) {
-    if (v.source === 'job-description') {
-      jobPoints.push({
-        id: v.id,
-        vector: v.vector,
-        payload: {
-          jobId: v.jobId ? v.jobId.toString() : '',
-          company: v.company || null,
-          role: v.role || 'Software Engineer',
-          text: v.text,
-          chunkIndex: v.chunkIndex
-        }
-      });
-    } else {
-      companyPoints.push({
-        id: v.id,
-        vector: v.vector,
-        payload: {
-          company: v.company || null,
-          source: v.source,
-          text: v.text,
-          jobId: v.jobId ? v.jobId.toString() : '',
-          chunkIndex: v.chunkIndex
-        }
-      });
+  const points = vectors.map(v => ({
+    id: v.id,
+    vector: {
+      "": v.vector,
+      "bm25": v.sparseVector
+    },
+    payload: {
+      text: v.text,
+      company: v.company || null,
+      jobId: v.jobId ? v.jobId.toString() : '',
+      chunkIndex: v.chunkIndex,
+      source: v.source,
+      industry: v.industry,
+      role_family: v.role_family,
+      content_type: v.content_type,
+      topic: v.topic,
+      subtopic: v.subtopic,
+      difficulty: v.difficulty,
+      question_relevance: v.question_relevance
     }
-  }
+  }));
 
-  if (jobPoints.length > 0) {
-    await qdrant.upsert(JOB_COLLECTION, {
+  if (points.length > 0) {
+    await qdrant.upsert(KNOWLEDGE_COLLECTION, {
       wait: true,
-      points: jobPoints
-    });
-  }
-
-  if (companyPoints.length > 0) {
-    await qdrant.upsert(COMPANY_COLLECTION, {
-      wait: true,
-      points: companyPoints
+      points: points
     });
   }
 }

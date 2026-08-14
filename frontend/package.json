@@ -9,15 +9,16 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@gsap/react": "^2.1.2",
     "@ricky0123/vad-web": "^0.0.30",
     "bcryptjs": "^3.0.3",
+    "gsap": "^3.15.0",
     "jsonwebtoken": "^9.0.3",
     "kokoro-js": "^1.2.1",
     "next": "16.2.7",
     "onnxruntime-web": "^1.26.0",
     "react": "19.2.4",
-    "react-dom": "19.2.4",
-    "vosk-browser": "^0.0.8"
+    "react-dom": "19.2.4"
   },
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",
