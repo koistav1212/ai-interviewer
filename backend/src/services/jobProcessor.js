@@ -3,8 +3,6 @@ const { qdrant } = require('../config/qdrant');
 const { getEmbedding, getSparseEmbedding } = require('./embeddingService');
 const crypto = require('crypto');
 
-// Target collection
-const KNOWLEDGE_COLLECTION = 'interview_knowledge';
 
 // Categories of intelligence to collect
 const SEARCH_CATEGORIES = [
@@ -237,32 +235,50 @@ async function generateEmbeddings(chunks, jobMetadata = {}) {
  * 6. Store in Qdrant
  */
 async function storeVectors(vectors) {
-  const points = vectors.map(v => ({
-    id: v.id,
-    vector: {
-      "": v.vector,
-      "bm25": v.sparseVector
-    },
-    payload: {
-      text: v.text,
-      company: v.company || null,
-      jobId: v.jobId ? v.jobId.toString() : '',
-      chunkIndex: v.chunkIndex,
-      source: v.source,
-      industry: v.industry,
-      role_family: v.role_family,
-      content_type: v.content_type,
-      topic: v.topic,
-      subtopic: v.subtopic,
-      difficulty: v.difficulty,
-      question_relevance: v.question_relevance
-    }
-  }));
+  const jobPoints = [];
+  const companyPoints = [];
 
-  if (points.length > 0) {
-    await qdrant.upsert(KNOWLEDGE_COLLECTION, {
+  for (const v of vectors) {
+    const point = {
+      id: v.id,
+      vector: {
+        "": v.vector,
+        "bm25": v.sparseVector
+      },
+      payload: {
+        text: v.text,
+        company: v.company || null,
+        jobId: v.jobId ? v.jobId.toString() : '',
+        chunkIndex: v.chunkIndex,
+        source: v.source,
+        industry: v.industry,
+        role_family: v.role_family,
+        content_type: v.content_type,
+        topic: v.topic,
+        subtopic: v.subtopic,
+        difficulty: v.difficulty,
+        question_relevance: v.question_relevance
+      }
+    };
+
+    if (v.content_type === 'job_knowledge') {
+      jobPoints.push(point);
+    } else if (v.content_type === 'company_knowledge') {
+      companyPoints.push(point);
+    }
+  }
+
+  if (jobPoints.length > 0) {
+    await qdrant.upsert('job_knowledge', {
       wait: true,
-      points: points
+      points: jobPoints
+    });
+  }
+
+  if (companyPoints.length > 0) {
+    await qdrant.upsert('company_knowledge', {
+      wait: true,
+      points: companyPoints
     });
   }
 }

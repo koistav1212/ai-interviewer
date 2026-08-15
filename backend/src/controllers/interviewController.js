@@ -233,7 +233,10 @@ exports.startInterviewSession = async (req, res, next) => {
         name: profile?.userId?.name || 'Candidate',
         experience: profile?.experience || []
       },
-      resume_entities: profile?.resumeJson || { text: resumeText },
+      resume_entities: { 
+        text: resumeText,
+        skills: profile?.skills || []
+      },
       jd_profile: {
         title: job.title,
         description: job.description,

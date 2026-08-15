@@ -8,16 +8,23 @@ if (typeof process.getBuiltinModule !== 'function') {
 }
 
 const app = require('./app');
+const { initializeQdrant } = require('./config/qdrant');
 
 const PORT = process.env.PORT || 8001;
 
-const server = app.listen(PORT, () => {
-  console.log(`🚀 TalentIQ AI Backend server running in ${process.env.NODE_ENV || 'development'} mode on port ${PORT}`);
-});
+async function startServer() {
+  await initializeQdrant();
 
-process.on('SIGTERM', () => {
-  console.log('SIGTERM signal received: closing HTTP server');
-  server.close(() => {
-    console.log('HTTP server closed');
+  const server = app.listen(PORT, () => {
+    console.log(`🚀 TalentIQ AI Backend server running in ${process.env.NODE_ENV || 'development'} mode on port ${PORT}`);
   });
-});
+
+  process.on('SIGTERM', () => {
+    console.log('SIGTERM signal received: closing HTTP server');
+    server.close(() => {
+      console.log('HTTP server closed');
+    });
+  });
+}
+
+startServer();

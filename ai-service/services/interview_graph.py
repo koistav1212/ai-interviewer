@@ -3,9 +3,17 @@ import json
 from typing import TypedDict, List, Dict, Any, Optional
 from groq import Groq
 from qdrant_client import QdrantClient
+from qdrant_client.http import models
 from langgraph.graph import StateGraph, START, END
-import datetime
+from fastembed import TextEmbedding
 
+try:
+    embedding_model = TextEmbedding("BAAI/bge-small-en-v1.5")
+except Exception as e:
+    print("Failed to load embedding model:", e)
+    embedding_model = None
+import datetime
+import random
 class InterviewState(TypedDict):
     sessionId: str
     candidateId: str
@@ -90,17 +98,6 @@ def evaluate_answer_node(state: InterviewState) -> dict:
         "evaluation": {}
     }
     
-    if turn_number == 1:
-        print_trace(trace_id, "INTERVIEW INITIALIZATION", {
-            "Interview ID": session_id,
-            "Candidate ID": state.get("candidateId"),
-            "Job ID": state.get("jobId"),
-            "RESUME SUMMARY": state.get("resume_entities"),
-            "JD REQUIREMENTS": state.get("jd_profile"),
-            "COMPANY KNOWLEDGE": state.get("company_profile"),
-            "INTERVIEW BLUEPRINT": state.get("interview_blueprint")
-        })
-
     print_trace(trace_id, "Starting Answer Evaluator")
     
     if not state.get("current_answer"):
@@ -296,6 +293,77 @@ def question_planner_node(state: InterviewState) -> dict:
         "current_trace": current_trace
     }
 
+OPENING_WEIGHTS = {
+    "introduction": 0.18,
+    "resume_walkthrough": 0.18,
+    "best_project": 0.18,
+    "tech_stack": 0.14,
+    "company_knowledge": 0.10,
+    "career_transition": 0.10,
+    "role_interest": 0.07,
+    "recent_experience": 0.03,
+    "industry_interest": 0.02
+}
+
+def opening_question_selector_node(state: InterviewState) -> dict:
+    turn_number = state.get("turn_number", 0) + 1
+    session_id = state.get("sessionId", "unknown_session")
+    trace_id = f"trace_{session_id}_turn_{turn_number:02d}"
+    
+    current_trace = {
+        "traceId": trace_id,
+        "interviewId": session_id,
+        "questionId": f"q_{turn_number:02d}",
+        "turnNumber": turn_number,
+        "candidateContext": state.get("candidate_profile", {}),
+        "jobContext": state.get("jd_profile", {}),
+        "companyContext": state.get("company_profile", {}),
+        "previousQuestion": "",
+        "candidateAnswer": "",
+        "agents": {},
+        "retrieval": {},
+        "finalContext": {},
+        "generatedQuestion": {},
+        "evaluation": {}
+    }
+    
+    print_trace(trace_id, "INTERVIEW INITIALIZATION", {
+        "Interview ID": session_id,
+        "Candidate ID": state.get("candidateId"),
+        "Job ID": state.get("jobId"),
+        "RESUME SUMMARY": state.get("resume_entities"),
+        "JD REQUIREMENTS": state.get("jd_profile"),
+        "COMPANY KNOWLEDGE": state.get("company_profile"),
+        "INTERVIEW BLUEPRINT": state.get("interview_blueprint")
+    })
+    
+    selected_opening = random.choices(
+        list(OPENING_WEIGHTS.keys()),
+        weights=list(OPENING_WEIGHTS.values()),
+        k=1
+    )[0]
+    
+    plan = {
+        "selected_question_type": "opening",
+        "selected_topic": selected_opening,
+        "source_of_topic": ["interview_start"],
+        "trigger": "First turn of interview requires natural opening",
+        "competency": "communication",
+        "difficulty": "easy",
+        "follow_up_depth": 0,
+        "priority_score": 1.0,
+        "alternative_topics_considered": []
+    }
+    
+    current_trace["agents"]["openingSelector"] = plan
+    print_trace(trace_id, "OPENING QUESTION SELECTOR", plan)
+    
+    return {
+        "question_plan": plan,
+        "turn_number": turn_number,
+        "current_trace": current_trace
+    }
+
 def retrieval_router_node(state: InterviewState) -> dict:
     current_trace = state.get("current_trace", {})
     trace_id = current_trace.get("traceId", "unknown_trace")
@@ -329,6 +397,21 @@ def retrieval_router_node(state: InterviewState) -> dict:
         "SOURCE FILTERS": retrieval_decision.get("filters"),
         "SEARCH MODE": "dense_vector_search"
     }
+    
+    RETRIEVAL_MAP = {
+        "resume_based": ["resume_knowledge"],
+        "project": ["resume_knowledge"],
+        "experience": ["resume_knowledge"],
+        "technical": ["resume_knowledge", "technical_knowledge"],
+        "industry": ["company_knowledge", "industry_knowledge"],
+        "company": ["company_knowledge"],
+        "business_case": ["technical_knowledge", "industry_knowledge"]
+    }
+    
+    target_collections = RETRIEVAL_MAP.get(plan.get("selected_question_type"), ["resume_knowledge", "job_knowledge"])
+    
+    # Override source filters with the accurate mapping
+    retrieval_log["TARGET_COLLECTIONS"] = target_collections
     print_trace(trace_id, "RETRIEVAL ROUTER", retrieval_log)
     
     results_log = []
@@ -337,20 +420,56 @@ def retrieval_router_node(state: InterviewState) -> dict:
     try:
         qdrant_url = os.getenv("QDRANT_URL", "http://localhost:6333")
         qdrant_api_key = os.getenv("QDRANT_API_KEY")
-        if qdrant_api_key:
-            qclient = QdrantClient(url=qdrant_url, api_key=qdrant_api_key)
-            # Simulated Qdrant lookup for now if we don't know the exact collection name
-            # Normally we would do: qclient.search(...)
-            retrieved_text = f"Simulated retrieved context for {{retrieval_decision.get('search_query')}}."
-            results_log.append({
-                "RANK": 1,
-                "SCORE": 0.89,
-                "TOPIC": topic,
-                "RETRIEVED TEXT": retrieved_text
-            })
+        
+        if qdrant_api_key and embedding_model:
+            q_client = QdrantClient(url=qdrant_url, api_key=qdrant_api_key)
+            
+            search_query = retrieval_decision.get("search_query") or topic
+            query_vector = list(embedding_model.embed([search_query]))[0].tolist()
+            
+            retrieved_results = []
+            for coll in target_collections:
+                try:
+                    if coll == "resume_knowledge":
+                        filter_criteria = models.Filter(
+                            must=[
+                                models.FieldCondition(key="candidateId", match=models.MatchValue(value=state.get("candidateId"))),
+                                models.FieldCondition(key="content_type", match=models.MatchValue(value="resume_knowledge"))
+                            ]
+                        )
+                    else:
+                        filter_criteria = models.Filter(
+                            must=[models.FieldCondition(key="content_type", match=models.MatchValue(value=coll))]
+                        )
+                        
+                    hits = q_client.search(
+                        collection_name=coll,
+                        query_vector=("", query_vector),
+                        query_filter=filter_criteria,
+                        limit=3
+                    )
+                    
+                    for hit in hits:
+                        payload = hit.payload or {}
+                        retrieved_results.append({
+                            "collection": coll,
+                            "score": hit.score,
+                            "section": payload.get("section", "unknown"),
+                            "topic": payload.get("topic", "unknown"),
+                            "text": payload.get("text", "")
+                        })
+                except Exception as ex:
+                    print(f"Error querying {coll}: {ex}")
+            
+            if retrieved_results:
+                retrieved_text = json.dumps(retrieved_results, indent=2)
+                results_log = retrieved_results
+            else:
+                retrieved_text = "No context available (no matches found)."
+                results_log.append({"info": "No results found in Qdrant"})
         else:
-            retrieved_text = "Skipped retrieval due to missing Qdrant config."
-            results_log.append({"error": "No Qdrant config"})
+            retrieved_text = "Skipped retrieval due to missing Qdrant config or embedding model."
+            results_log.append({"error": "No Qdrant config or missing embedding model"})
     except Exception as e:
         print(f"Qdrant retrieval error: {e}")
         retrieved_text = "Error retrieving context."
@@ -360,7 +479,7 @@ def retrieval_router_node(state: InterviewState) -> dict:
     
     current_trace["retrieval"] = {
         "queries": [retrieval_decision.get("search_query")],
-        "filters": [retrieval_decision.get("filters")],
+        "filters": target_collections,
         "searchType": "dense_vector_search",
         "results": results_log
     }
@@ -507,13 +626,26 @@ workflow = StateGraph(InterviewState)
 
 workflow.add_node("evaluate_answer", evaluate_answer_node)
 workflow.add_node("decision_agent", decision_agent_node)
+workflow.add_node("opening_question_selector", opening_question_selector_node)
 workflow.add_node("question_planner", question_planner_node)
 workflow.add_node("retrieval_router", retrieval_router_node)
 workflow.add_node("generate_question", generate_question_node)
 workflow.add_node("generate_report", generate_report_node)
 workflow.add_node("end_interview", end_interview_node)
 
-workflow.set_entry_point("evaluate_answer")
+def route_start(state: InterviewState) -> str:
+    # If no questions have been asked yet, go to opening question selector
+    if state.get("questionCount", 0) == 0:
+        return "opening_question_selector"
+    return "evaluate_answer"
+
+workflow.set_conditional_entry_point(
+    route_start,
+    {
+        "opening_question_selector": "opening_question_selector",
+        "evaluate_answer": "evaluate_answer"
+    }
+)
 
 def route_from_decision(state: InterviewState) -> str:
     return state.get("next_step", "generate_report")
@@ -528,6 +660,7 @@ workflow.add_conditional_edges(
 )
 
 workflow.add_edge("evaluate_answer", "decision_agent")
+workflow.add_edge("opening_question_selector", "generate_question")
 workflow.add_edge("question_planner", "retrieval_router")
 workflow.add_edge("retrieval_router", "generate_question")
 workflow.add_edge("generate_question", END)

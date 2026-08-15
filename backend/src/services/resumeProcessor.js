@@ -2,7 +2,7 @@ const { getEmbedding, getSparseEmbedding } = require('./embeddingService');
 const { qdrant } = require('../config/qdrant');
 const crypto = require('crypto');
 
-const KNOWLEDGE_COLLECTION = 'interview_knowledge';
+const KNOWLEDGE_COLLECTION = 'resume_knowledge';
 
 async function searchWebFootprint(query) {
   const apiKey = process.env.TAVILY_API_KEY;
