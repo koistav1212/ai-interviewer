@@ -40,4 +40,4 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
-ai-service/venv
+ai-service/venv__pycache__/
